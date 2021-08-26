@@ -1,0 +1,3 @@
+[submodule "exts/Catch2"]
+	path = exts/Catch2
+	url = https://github.com/catchorg/Catch2.git
