@@ -44,9 +44,6 @@ int main(int argc, char* argv[]) {
                            {"name": "baz", "type": "list", "contains" : {"type": "int32"}}
                          ]}}
              ]})"_json;
-//            ]
-//        }
-//    )"_json;
 
     writer->load_schema(layout);
     writer->initialize_output(dataset_name, output_dir);
