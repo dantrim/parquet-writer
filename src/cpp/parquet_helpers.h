@@ -36,7 +36,6 @@ namespace helpers {
             type_ptr get_uint16() { return arrow::uint16(); }
             type_ptr get_uint32() { return arrow::uint32(); }
             type_ptr get_uint64() { return arrow::uint64(); }
-            type_ptr get_float16() { return arrow::float16(); }
             type_ptr get_float32() { return arrow::float32(); }
             type_ptr get_float64() { return arrow::float64(); }
             type_ptr get_string() { return arrow::utf8(); }
@@ -55,7 +54,6 @@ namespace helpers {
         	{"uint16",  &parquetwriter::helpers::internal::ArrowTypeInit::get_uint16},
         	{"uint32",  &parquetwriter::helpers::internal::ArrowTypeInit::get_uint32},
         	{"uint64",  &parquetwriter::helpers::internal::ArrowTypeInit::get_uint64},
-        	{"float16",  &parquetwriter::helpers::internal::ArrowTypeInit::get_float16},
         	{"float32",  &parquetwriter::helpers::internal::ArrowTypeInit::get_float32},
         	{"float64",  &parquetwriter::helpers::internal::ArrowTypeInit::get_float64},
         	{"string",  &parquetwriter::helpers::internal::ArrowTypeInit::get_string}

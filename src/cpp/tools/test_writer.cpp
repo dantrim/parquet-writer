@@ -30,16 +30,16 @@ int main(int argc, char* argv[]) {
                 {"name": "col5", "type": "uint16"},
                 {"name": "col6", "type": "uint32"},
                 {"name": "col7", "type": "uint64"},
-                {"name": "col9", "type": "float32"},
-                {"name": "col10", "type": "float64"},
-                {"name": "col11", "type": "list", "contains" : {"type": "int32"}},
-                {"name": "col12", "type": "list", "contains" : {"type": "float32"}},
-                {"name": "col13", "type": "bool"},
-                {"name": "col14", "type": "struct", "fields":
+                {"name": "col8", "type": "float32"},
+                {"name": "col9", "type": "float64"},
+                {"name": "col10", "type": "list", "contains" : {"type": "int32"}},
+                {"name": "col11", "type": "list", "contains" : {"type": "float32"}},
+                {"name": "col12", "type": "bool"},
+                {"name": "col13", "type": "struct", "fields":
                          [ {"name": "foo", "type": "uint32"},
                            {"name": "bar", "type": "float64"}
                          ]},
-                {"name": "col15", "type": "list", "contains" : {"type": "struct", "fields":
+                {"name": "col14", "type": "list", "contains" : {"type": "struct", "fields":
                          [ {"name": "faz", "type": "uint32"},
                            {"name": "baz", "type": "list", "contains" : {"type": "int32"}}
                          ]}}
@@ -65,29 +65,29 @@ int main(int argc, char* argv[]) {
     uint32_t col6_data = 2046;
     // col7
     uint64_t col7_data = 4098;
+    // col8
+    float col8_data = 1023.8;
     // col9
-    float col9_data = 1023.8;
+    double col9_data = 50.2;
     // col10
-    double col10_data = 50.2;
+    std::vector<int32_t> col10_data{1,-2, 3, -4};
     // col11
-    std::vector<int32_t> col11_data{1,-2, 3, -4};
+    std::vector<float> col11_data{1.5, -2.5, 3.5, -4.5};
     // col12
-    std::vector<float> col12_data{1.5, -2.5, 3.5, -4.5};
+    bool col12_data = true;
     // col13
-    bool col13_data = true;
+    uint32_t col13_field_foo = 42;
+    double col13_field_bar = 103.7;
+    pw::types::buffer_value_vec_t col13_data{col13_field_foo, col13_field_bar};
     // col14
-    uint32_t col14_field_foo = 42;
-    double col14_field_bar = 103.7;
-    pw::types::buffer_value_vec_t col14_data{col14_field_foo, col14_field_bar};
-    // col15
-    std::vector<pw::types::buffer_t> col15_data;
+    std::vector<pw::types::buffer_t> col14_data;
     for(size_t i = 0; i < 5; i++) {
-        pw::types::buffer_value_vec_t col15_element_field_data;
-        uint32_t col15_field_faz = 32;
-        std::vector<int32_t> col15_field_baz{1,-2,3,-4};
-        col15_element_field_data.push_back(col15_field_faz);
-        col15_element_field_data.push_back(col15_field_baz);
-        col15_data.push_back(col15_element_field_data);
+        pw::types::buffer_value_vec_t col14_element_field_data;
+        uint32_t col14_field_faz = 32;
+        std::vector<int32_t> col14_field_baz{1,-2,3,-4};
+        col14_element_field_data.push_back(col14_field_faz);
+        col14_element_field_data.push_back(col14_field_baz);
+        col14_data.push_back(col14_element_field_data);
     } // i
 
 
@@ -100,13 +100,13 @@ int main(int argc, char* argv[]) {
     writer->fill("col5", {col5_data});
     writer->fill("col6", {col6_data});
     writer->fill("col7", {col7_data});
+    writer->fill("col8", {col8_data});
     writer->fill("col9", {col9_data});
     writer->fill("col10", {col10_data});
     writer->fill("col11", {col11_data});
     writer->fill("col12", {col12_data});
     writer->fill("col13", {col13_data});
     writer->fill("col14", {col14_data});
-    writer->fill("col15", {col15_data});
 
     writer->finish();
 
