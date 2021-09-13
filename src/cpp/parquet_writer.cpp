@@ -433,7 +433,7 @@ void Writer::fill(const std::string& field_path,
             while(builder_type->id() != arrow::Type::STRUCT) {
                 if(try_count > 3) {
                     std::stringstream err;
-                    err << "ERROR: (try_count = " << try_count << ") Expected builder type of \"struct\" for field with name \"" << field_path << "\", got \"" << builder_type->name() << "\"";
+                    err << "ERROR: Expected builder type of \"struct\" for field with name \"" << field_path << "\", got \"" << builder_type->name() << "\"";
                     throw std::runtime_error(err.str());
                 }
                 if(builder_type->id() == arrow::Type::LIST) {
@@ -446,12 +446,6 @@ void Writer::fill(const std::string& field_path,
                 }
                 try_count++;
             }
-
-            //if(builder_type->id() != arrow::Type::STRUCT) {
-            //    std::stringstream err;
-            //    err << "ERROR: Expected builder type of \"struct\" for field with name \"" << field_path << "\", got \"" << builder_type->name() << "\"";
-            //    throw std::runtime_error(err.str());
-            //}
             types::buffer_value_vec_t field_data_vec = *val;
 
             auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
