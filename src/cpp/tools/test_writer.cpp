@@ -47,7 +47,18 @@ int main(int argc, char* argv[]) {
                 {"name": "col16", "type": "list", "contains" : {"type": "list", "contains": {"type": "float32"}}},
                 {"name": "col17", "type": "list",
                                             "contains" : {"type": "list",
-                                            "contains": {"type": "list", "contains": {"type": "uint32"}}}}
+                                            "contains": {"type": "list", "contains": {"type": "uint32"}}}},
+                {"name": "col18", "type": "list",
+                                            "contains": {"type": "list",
+                                            "contains": {"type": "struct", "fields":
+                                                [ {"name": "foo", "type": "float32"}, {"name": "bar", "type": "int32"} ]
+                                            }}},
+                {"name": "col19", "type": "list",
+                                            "contains": {"type": "list",
+                                            "contains": {"type": "list", 
+                                            "contains": {"type": "struct", "fields":
+                                                [ {"name": "foo", "type": "float32"}, {"name": "bar", "type": "int32"} ]}
+                                            }}}
             
              ]})"_json;
 
@@ -105,6 +116,40 @@ int main(int argc, char* argv[]) {
         { {19}, {12, 13, 14}, {52, 57, 99, 0}, {22} }
     };
 
+    // col18
+    std::vector<pw::types::buffer_t> col18_data;
+    for(size_t i = 0; i < 3; i++) {
+        pw::types::buffer_value_vec2d_t inner_data;
+        for(size_t j = 0; j < (i+1); j++) {
+            pw::types::buffer_value_vec_t col18_element_field_data;
+            float col18_field_foo = i * j;
+            int32_t col18_field_bar = i*j + 2;
+            col18_element_field_data.push_back(col18_field_foo);
+            col18_element_field_data.push_back(col18_field_bar);
+            inner_data.push_back(col18_element_field_data);
+        } // j
+        col18_data.push_back(inner_data);
+    } // i
+
+    // col19
+    std::vector<pw::types::buffer_t> col19_data;
+    for(size_t i = 0; i < 5; i++) {
+        pw::types::buffer_value_vec3d_t inner3_data;
+        for(size_t j = 0; j < 3; j++) {
+            pw::types::buffer_value_vec2d_t inner2_data;
+            for(size_t k = 0; k < 2; k++) {
+                pw::types::buffer_value_vec_t col19_element_field_data;
+                float col19_field_foo = i * j * k;
+                int32_t col19_field_bar = i*j * k + 2;
+                col19_element_field_data.push_back(col19_field_foo);
+                col19_element_field_data.push_back(col19_field_bar);
+                inner2_data.push_back(col19_element_field_data);
+            } // k
+            inner3_data.push_back(inner2_data);
+        } // j
+        col19_data.push_back(inner3_data);
+    } // i
+
 
     // now fill the output table
     for(size_t ievent = 0; ievent < 10; ievent++) {
@@ -126,6 +171,8 @@ int main(int argc, char* argv[]) {
         writer->fill("col15", {col15_data});
         writer->fill("col16", {col16_data});
         writer->fill("col17", {col17_data});
+        writer->fill("col18", {col18_data});
+        writer->fill("col19", {col19_data});
     }
 
     writer->finish();

@@ -54,6 +54,8 @@ namespace types {
         > buffer_value_t;
 
     typedef std::vector<buffer_value_t> buffer_value_vec_t;
-    typedef std::variant<buffer_value_t, buffer_value_vec_t> buffer_t;
+    typedef std::vector<std::vector<buffer_value_t>> buffer_value_vec2d_t;
+    typedef std::vector<std::vector<std::vector<buffer_value_t>>> buffer_value_vec3d_t;
+    typedef std::variant<buffer_value_t, buffer_value_vec_t, buffer_value_vec2d_t, buffer_value_vec3d_t> buffer_t;
 }
 }; // namespace parquetwriter

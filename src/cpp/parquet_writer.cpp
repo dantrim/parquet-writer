@@ -189,31 +189,85 @@ void Writer::fill(const std::string& field_path,
     // filling a multivalued column field
     //
     if(data_buffer.size() > 1) {
+
         bool is_struct = builder_type->id() == arrow::Type::STRUCT;
         bool is_list = builder_type->id() == arrow::Type::LIST;
 
-        // handle the case of a list of structs, which
-        // will have a data_buffer looking like:
-        // { 
-        //   {a, b, {c, d}},
-        //   {a, b, {c, d}} 
-        // }
         if(is_list) {
+            // handle the case of a list of structs, which
+            // will have a data_buffer looking like:
+            // { 
+            //   {a, b, {c, d}},
+            //   {a, b, {c, d}} 
+            // }
             auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
             PARQUET_THROW_NOT_OK(list_builder->Append());
             auto value_builder = list_builder->value_builder();
             auto value_type = value_builder->type();
-            if(value_type->id() != arrow::Type::STRUCT) {
-                std::stringstream err;
-                err << "ERROR: Only handle nested list[struct], but you are trying list[" << value_type->name() << "]";
-                throw std::runtime_error(err.str());
-            }
 
-            std::string value_node_name = field_path + "/item";
-            for(size_t ielement = 0; ielement < data_buffer.size(); ielement++) {
-                auto element_data_vec = std::get<std::vector<types::buffer_value_t>>(data_buffer.at(ielement));
-                this->fill(value_node_name, {element_data_vec});
-            } // ielement
+            bool is_list2 = value_type->id() == arrow::Type::LIST;
+            if(is_list2) {
+                // data_buffer looking like:
+                // {
+                //    { 
+                //      {a, b, {c, d}},
+                //      {a, b, {c, d}},
+                //    }
+                // }
+
+                auto list2_builder = dynamic_cast<arrow::ListBuilder*>(value_builder);
+                auto value2_builder = list2_builder->value_builder();
+                auto value2_type = value2_builder->type();
+
+                bool is_list3 = value2_type->id() == arrow::Type::LIST;
+                if(is_list3) {
+
+                    auto list3_builder = dynamic_cast<arrow::ListBuilder*>(value2_builder);
+                    auto value3_builder = list3_builder->value_builder();
+                    auto value3_type = value3_builder->type();
+
+                    std::string value_node_name = field_path + "/item";
+                    for(size_t i = 0; i < data_buffer.size(); i++) {
+                        PARQUET_THROW_NOT_OK(list2_builder->Append());
+                        auto ivec = std::get<std::vector<std::vector<std::vector<types::buffer_value_t>>>>(data_buffer.at(i));
+                        for(size_t j = 0; j < ivec.size(); j++) {
+                            PARQUET_THROW_NOT_OK(list3_builder->Append());
+                            auto jvec = ivec.at(j);
+                            for(size_t k = 0; k < jvec.size(); k++) {
+                                auto element_data = jvec.at(k);
+                                this->fill(value_node_name, {element_data});
+                            }
+
+                        } // j
+                    } // i
+
+                } else {
+                    std::string value_node_name = field_path + "/item";
+                    for(size_t ielement = 0; ielement < data_buffer.size(); ielement++) {
+                        PARQUET_THROW_NOT_OK(list2_builder->Append());
+                        auto element_data_vec = std::get<std::vector<std::vector<types::buffer_value_t>>>(data_buffer.at(ielement));
+                        for(size_t jelement = 0; jelement < element_data_vec.size(); jelement++) {
+                            auto element_data = element_data_vec.at(jelement);
+
+
+                            this->fill(value_node_name, {element_data});
+                        } // jelement
+                    } // ielement
+                } // 2d list
+            } else {
+
+            //if(value_type->id() != arrow::Type::STRUCT) {
+            //    std::stringstream err;
+            //    err << "ERROR: Only handle nested list[struct], but you are trying list[" << value_type->name() << "]";
+            //    throw std::runtime_error(err.str());
+            //}
+
+                std::string value_node_name = field_path + "/item";
+                for(size_t ielement = 0; ielement < data_buffer.size(); ielement++) {
+                    auto element_data_vec = std::get<std::vector<types::buffer_value_t>>(data_buffer.at(ielement));
+                    this->fill(value_node_name, {element_data_vec});
+                } // ielement
+            } // 1D list
         } else
         if(is_struct) {
             auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
@@ -375,11 +429,29 @@ void Writer::fill(const std::string& field_path,
             // here we handle the case of a data buffer containing a a
             // vector of potentially differently-typed fields (e.g. a struct)
 
-            if(builder_type->id() != arrow::Type::STRUCT) {
-                std::stringstream err;
-                err << "ERROR: Expected builder type of \"struct\" for field with name \"" << field_path << "\"";
-                throw std::runtime_error(err.str());
+            size_t try_count = 0;
+            while(builder_type->id() != arrow::Type::STRUCT) {
+                if(try_count > 3) {
+                    std::stringstream err;
+                    err << "ERROR: (try_count = " << try_count << ") Expected builder type of \"struct\" for field with name \"" << field_path << "\", got \"" << builder_type->name() << "\"";
+                    throw std::runtime_error(err.str());
+                }
+                if(builder_type->id() == arrow::Type::LIST) {
+                    auto tmp = dynamic_cast<arrow::ListBuilder*>(builder)->value_builder();
+                    auto tmp_type = tmp->type();
+                    //if(tmp_type->id() == arrow::Type::STRUCT) {
+                        builder = tmp;
+                        builder_type = builder->type();
+                    //}
+                }
+                try_count++;
             }
+
+            //if(builder_type->id() != arrow::Type::STRUCT) {
+            //    std::stringstream err;
+            //    err << "ERROR: Expected builder type of \"struct\" for field with name \"" << field_path << "\", got \"" << builder_type->name() << "\"";
+            //    throw std::runtime_error(err.str());
+            //}
             types::buffer_value_vec_t field_data_vec = *val;
 
             auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);

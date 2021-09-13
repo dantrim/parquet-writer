@@ -1,4 +1,5 @@
 #include "parquet_helpers.h"
+#include <iostream>
 
 //std/stl
 #include <sstream>
