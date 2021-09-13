@@ -42,7 +42,13 @@ int main(int argc, char* argv[]) {
                 {"name": "col14", "type": "list", "contains" : {"type": "struct", "fields":
                          [ {"name": "faz", "type": "uint32"},
                            {"name": "baz", "type": "list", "contains" : {"type": "int32"}}
-                         ]}}
+                         ]}},
+                {"name": "col15", "type": "list", "contains" : {"type": "list", "contains": {"type": "int32"}}},
+                {"name": "col16", "type": "list", "contains" : {"type": "list", "contains": {"type": "float32"}}},
+                {"name": "col17", "type": "list",
+                                            "contains" : {"type": "list",
+                                            "contains": {"type": "list", "contains": {"type": "uint32"}}}}
+            
              ]})"_json;
 
     writer->load_schema(layout);
@@ -89,24 +95,38 @@ int main(int argc, char* argv[]) {
         col14_element_field_data.push_back(col14_field_baz);
         col14_data.push_back(col14_element_field_data);
     } // i
+    // col15
+    std::vector<std::vector<int32_t>> col15_data{ {1,2,3}, {-4,-5,-6, -7, -8} };
+    // col16
+    std::vector<std::vector<float>> col16_data{ {1.2, 3.4, 5.6}, {-1.2, -3.4, -5.6, -7.8}, {-3.9, 42.5} };
+    // col17
+    std::vector<std::vector<std::vector<uint32_t>>> col17_data{
+        { {0,1,2}, {3,4,5,6,7}, {42} },
+        { {19}, {12, 13, 14}, {52, 57, 99, 0}, {22} }
+    };
 
 
     // now fill the output table
-    writer->fill("col0", {col0_data});
-    writer->fill("col1", {col1_data});
-    writer->fill("col2", {col2_data});
-    writer->fill("col3", {col3_data});
-    writer->fill("col4", {col4_data});
-    writer->fill("col5", {col5_data});
-    writer->fill("col6", {col6_data});
-    writer->fill("col7", {col7_data});
-    writer->fill("col8", {col8_data});
-    writer->fill("col9", {col9_data});
-    writer->fill("col10", {col10_data});
-    writer->fill("col11", {col11_data});
-    writer->fill("col12", {col12_data});
-    writer->fill("col13", {col13_data});
-    writer->fill("col14", {col14_data});
+    for(size_t ievent = 0; ievent < 10; ievent++) {
+        writer->fill("col0", {col0_data});
+        writer->fill("col1", {col1_data});
+        writer->fill("col2", {col2_data});
+        writer->fill("col3", {col3_data});
+        writer->fill("col4", {col4_data});
+        writer->fill("col5", {col5_data});
+        writer->fill("col6", {col6_data});
+        writer->fill("col7", {col7_data});
+        writer->fill("col8", {col8_data});
+        writer->fill("col9", {col9_data});
+        writer->fill("col10", {col10_data});
+        writer->fill("col11", {col11_data});
+        writer->fill("col12", {col12_data});
+        writer->fill("col13", {col13_data});
+        writer->fill("col14", {col14_data});
+        writer->fill("col15", {col15_data});
+        writer->fill("col16", {col16_data});
+        writer->fill("col17", {col17_data});
+    }
 
     writer->finish();
 

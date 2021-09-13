@@ -269,6 +269,9 @@ void Writer::fill(const std::string& field_path,
             if(auto v = std::get_if<double>(val)) {
                 helpers::fill<double>(*v, builder);
             } else
+            if(auto v = std::get_if<std::vector<bool>>(val)) {
+                helpers::fill<std::vector<bool>>(*v, builder);
+            } else
             if(auto v = std::get_if<std::vector<uint8_t>>(val)) {
                 helpers::fill<std::vector<uint8_t>>(*v, builder);
             } else
@@ -298,6 +301,72 @@ void Writer::fill(const std::string& field_path,
             } else
             if(auto v = std::get_if<std::vector<double>>(val)) {
                 helpers::fill<std::vector<double>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<bool>>>(val)) {
+                helpers::fill<std::vector<std::vector<bool>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<uint8_t>>>(val)) {
+                helpers::fill<std::vector<std::vector<uint8_t>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<uint16_t>>>(val)) {
+                helpers::fill<std::vector<std::vector<uint16_t>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<uint32_t>>>(val)) {
+                helpers::fill<std::vector<std::vector<uint32_t>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<uint64_t>>>(val)) {
+                helpers::fill<std::vector<std::vector<uint64_t>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<int8_t>>>(val)) {
+                helpers::fill<std::vector<std::vector<int8_t>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<int16_t>>>(val)) {
+                helpers::fill<std::vector<std::vector<int16_t>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<int32_t>>>(val)) {
+                helpers::fill<std::vector<std::vector<int32_t>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<int64_t>>>(val)) {
+                helpers::fill<std::vector<std::vector<int64_t>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<float>>>(val)) {
+                helpers::fill<std::vector<std::vector<float>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<double>>>(val)) {
+                helpers::fill<std::vector<std::vector<double>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<std::vector<bool>>>>(val)) {
+                helpers::fill<std::vector<std::vector<std::vector<bool>>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<std::vector<uint8_t>>>>(val)) {
+                helpers::fill<std::vector<std::vector<std::vector<uint8_t>>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<std::vector<uint16_t>>>>(val)) {
+                helpers::fill<std::vector<std::vector<std::vector<uint16_t>>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<std::vector<uint32_t>>>>(val)) {
+                helpers::fill<std::vector<std::vector<std::vector<uint32_t>>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<std::vector<uint64_t>>>>(val)) {
+                helpers::fill<std::vector<std::vector<std::vector<uint64_t>>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<std::vector<int8_t>>>>(val)) {
+                helpers::fill<std::vector<std::vector<std::vector<int8_t>>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<std::vector<int16_t>>>>(val)) {
+                helpers::fill<std::vector<std::vector<std::vector<int16_t>>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<std::vector<int32_t>>>>(val)) {
+                helpers::fill<std::vector<std::vector<std::vector<int32_t>>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<std::vector<int64_t>>>>(val)) {
+                helpers::fill<std::vector<std::vector<std::vector<int64_t>>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<std::vector<float>>>>(val)) {
+                helpers::fill<std::vector<std::vector<std::vector<float>>>>(*v, builder);
+            } else
+            if(auto v = std::get_if<std::vector<std::vector<std::vector<double>>>>(val)) {
+                helpers::fill<std::vector<std::vector<std::vector<double>>>>(*v, builder);
             } else {
                 throw std::logic_error("ERROR: Invalid type, cannot fill");
             }

@@ -28,7 +28,29 @@ namespace types {
             std::vector<int32_t>,
             std::vector<int64_t>,
             std::vector<float>,
-            std::vector<double>
+            std::vector<double>,
+            std::vector<std::vector<bool>>,
+            std::vector<std::vector<uint8_t>>,
+            std::vector<std::vector<uint16_t>>,
+            std::vector<std::vector<uint32_t>>,
+            std::vector<std::vector<uint64_t>>,
+            std::vector<std::vector<int8_t>>,
+            std::vector<std::vector<int16_t>>,
+            std::vector<std::vector<int32_t>>,
+            std::vector<std::vector<int64_t>>,
+            std::vector<std::vector<float>>,
+            std::vector<std::vector<double>>,
+            std::vector<std::vector<std::vector<bool>>>,
+            std::vector<std::vector<std::vector<uint8_t>>>,
+            std::vector<std::vector<std::vector<uint16_t>>>,
+            std::vector<std::vector<std::vector<uint32_t>>>,
+            std::vector<std::vector<std::vector<uint64_t>>>,
+            std::vector<std::vector<std::vector<int8_t>>>,
+            std::vector<std::vector<std::vector<int16_t>>>,
+            std::vector<std::vector<std::vector<int32_t>>>,
+            std::vector<std::vector<std::vector<int64_t>>>,
+            std::vector<std::vector<std::vector<float>>>,
+            std::vector<std::vector<std::vector<double>>>
         > buffer_value_t;
 
     typedef std::vector<buffer_value_t> buffer_value_vec_t;
