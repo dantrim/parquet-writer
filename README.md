@@ -1,6 +1,8 @@
 # parquet-writer
 Simple utilities for writing Parquet files in C++
 
+## Usage
+
 ## Building
 
 Below are the steps to build the `parquet-writer` shared library for your system.
@@ -33,8 +35,6 @@ Upon a successful build, the shared library `parquet-writer` will be located und
   
 It is assumed that you have installed Apache Arrow and Apache Parquet
 following the [steps below](#installing-apache-arrow-and-parquet-libraries).
-  
-## Usage
 
 
 ## Installing Apache Arrow and Parquet Libraries
