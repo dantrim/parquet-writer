@@ -1,7 +1,18 @@
 # parquet-writer
 Simple utilities for writing Parquet files in C++
 
-## Usage
+## Motiviation
+
+The idea is to be able to easily write Parquet files containing columns of whatever type you wish.
+
+The `parquet-writer` library allows you to specify your file layout (i.e. what types
+of columns to store) using a simple JSON schema and supports almost all of the numeric
+[data types supported by Parquet](https://arrow.apache.org/docs/cpp/api/datatype.html).
+
+`parquet-writer` also supports one, two, and three dimensional nesting of the standard
+numeric types, as well as supporting storing arbitrary struct-like objects with any
+number of fields as long as they are of a supported basic type.
+
 
 ## Building
 
