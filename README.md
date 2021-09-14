@@ -29,11 +29,10 @@ Below are the steps to build the `parquet-writer` shared library for your system
   
 </details>
   
+Upon a successful build, the shared library `parquet-writer` will be located under `build/lib`.
+  
 It is assumed that you have installed Apache Arrow and Apache Parquet
 following the [steps below](#installing-apache-arrow-and-parquet-libraries).
-  
-Upon a successful build, the shared library `parquet-writer` will be located under `build/lib`.
-
 
 ## Installing Apache Arrow and Parquet Libraries
 
