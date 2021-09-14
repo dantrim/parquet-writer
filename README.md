@@ -78,7 +78,7 @@ types are detailed in the table below,
 | `double` | `"float64"` |
 
 The JSON layout specification for columns holding these basic types is
-done using the `parquet-writer` type name,
+done using the `parquet-writer` type name:
 ```c++
 auto file_layout = R"(
   "fields": [
@@ -92,7 +92,7 @@ auto file_layout = R"(
 Examples of filling basic types using the corresponding C++ data types
 can be seen in the [section above](#basic-usage).
 
-### List Data Types
+### Lists of Basic Data Types
 
 Storing one, two, and three dimensional lists of the [basic types](#supported-data-types) is supported
 by `parquet-writer`. Specifying lists of these types is done via
@@ -176,7 +176,7 @@ As can be seen, `struct` types contain an additional `fields` array, which conta
 the usual `{"name": ..., "type": ...}` objects which describe each of the fields contained
 in the output data structure.
 
-#### Filling a StructType
+#### Filling Struct Data Types
 
 Since the `struct` type implies a complex data structure with arbitrarily typed nested fields,
 there is a convenience type that is used for filling this data type: `parquetwriter::struct_element`.
@@ -200,7 +200,7 @@ parquetwriter::struct_element my_struct_data{field0_data, field1_data, field2_da
 writer.fill("my_struct", {my_struct_data});
 ```
 
-#### StructType Data Ordering
+#### Struct DataType Fill Ordering
 
 The ordering of the elements in an instance of `parquetwriter::struct_element` must
 absolutely follow the order in which they are specified in the JSON specification
@@ -213,7 +213,7 @@ the file layout for the data structure `my_struct` expects data types ordered
 as `int32, float, list[float]` but `my_struct_bad_data` fills the `parquetwriter::struct_element`
 with data ordered as `list[float], int32, float`.
 
-### Lists of Structs
+### Lists of Struct DataType
 
 There are convenience types for filling columns containing data types that are nested
 lists of `struct` typed objects: `parquetwriter::struct_list1d`, `parquetwriter::struct_list2d`,
@@ -264,7 +264,7 @@ writer.fill("my_3d_structlist", {my_3d_structlist_data});
 
 
 
-## Building
+## Building the `parquet-writer` Library
 
 Below are the steps to build the `parquet-writer` shared library for your system.
 
