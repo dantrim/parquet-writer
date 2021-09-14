@@ -61,7 +61,7 @@ writer.finish();
 
 ## Data Types
 
-### Basic Types
+### Basic Data Types
 
 The basic data types that can be written to the output Parquet files
 using `parquet-writer` and their correspondence to their C++
@@ -92,7 +92,7 @@ auto file_layout = R"(
 Examples of filling basic types using the corresponding C++ data types
 can be seen in the [section above](#basic-usage).
 
-### List Types
+### List Data Types
 
 Storing one, two, and three dimensional lists of the [basic types](#supported-data-types) is supported
 by `parquet-writer`. Specifying lists of these types is done via
@@ -149,7 +149,7 @@ std::vector<std::vector<std::vector<double>>> my_3d_list_data{
 writer.fill("my_3d_list", {my_3d_list_data});
 ```
 
-### Struct Types
+### Struct Data Types
 
 Storing complex data structures with
 any number of named fields of possibly different data type (i.e. a `C++` `struct`) is possible.
