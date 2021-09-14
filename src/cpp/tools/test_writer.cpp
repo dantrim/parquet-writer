@@ -1,5 +1,4 @@
 #include "parquet_writer.h"
-#include "parquet_writer_types.h"
 
 //std/stl
 #include <iostream>
