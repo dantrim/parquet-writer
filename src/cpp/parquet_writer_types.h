@@ -1,6 +1,7 @@
 #pragma once
 
 //std/stl
+#include <stdint.h>
 #include <variant>
 #include <vector>
 
