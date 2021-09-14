@@ -23,7 +23,7 @@ number of fields as long as they are of a supported basic types.
 The `parquet-writer` library provides users with the `parquetwriter::Writer`
 class, which users provide with a JSON object specifying the desired structure
 of their output Parquet file and then fill accordingly.
-The basic usage is illustrated in the following,
+The basic usage is illustrated in the following:
 
 ```c++
 #include "parquet_writer.h"
