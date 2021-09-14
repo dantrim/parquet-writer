@@ -33,6 +33,9 @@ Upon a successful build, the shared library `parquet-writer` will be located und
   
 It is assumed that you have installed Apache Arrow and Apache Parquet
 following the [steps below](#installing-apache-arrow-and-parquet-libraries).
+  
+## Usage
+
 
 ## Installing Apache Arrow and Parquet Libraries
 
@@ -67,5 +70,3 @@ Below are the tested ones:
   sudo apt install pkg-config
   ```
 </details>
-  
-## Usage
