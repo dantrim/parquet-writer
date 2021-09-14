@@ -152,7 +152,7 @@ writer.fill("my_3d_list", {my_3d_list_data});
 ### Struct Types
 
 Storing complex data structures with
-any number of named fields of possibly different data type is possible.
+any number of named fields of possibly different data type (i.e. a `C++` `struct`) is possible.
 These correspond to Parquet's [StructType](https://arrow.apache.org/docs/cpp/api/datatype.html#_CPPv4N5arrow10StructTypeE).
 
 Specifying these complex data types is done via the `struct` type.
