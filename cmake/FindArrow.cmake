@@ -22,12 +22,12 @@
 #  ARROW_SHARED_LIB, path to libarrow's shared library
 #  ARROW_FOUND, whether arrow has been found
 
-if (DEFINED ENV{ARROW_HOME})
-  set(ARROW_HOME "$ENV{ARROW_HOME}")
+if (DEFINED ENV{ARROW_PATH})
+  set(ARROW_PATH "$ENV{ARROW_PATH}")
 endif()
 
-if ("${ARROW_HOME}" STREQUAL "")
-  # PARQUET-955. If the user has set $ARROW_HOME in the environment, we respect
+if ("${ARROW_PATH}" STREQUAL "")
+  # PARQUET-955. If the user has set $ARROW_PATH in the environment, we respect
   # this, otherwise try to locate the pkgconfig in the system environment
   pkg_check_modules(ARROW arrow)
   if (ARROW_FOUND)
@@ -55,18 +55,18 @@ if ("${ARROW_HOME}" STREQUAL "")
     set(ARROW_STATIC_LIB ${ARROW_LIBDIR}/${ARROW_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
   endif()
 else()
-  set(ARROW_HOME "${ARROW_HOME}")
+  set(ARROW_PATH "${ARROW_PATH}")
 
   if (MSVC AND NOT ARROW_MSVC_STATIC_LIB_SUFFIX)
     set(ARROW_MSVC_STATIC_LIB_SUFFIX _static)
   endif()
 
   set(ARROW_SEARCH_HEADER_PATHS
-    ${ARROW_HOME}/include
+    ${ARROW_PATH}/include
     )
 
   set(ARROW_SEARCH_LIB_PATH
-    ${ARROW_HOME}/lib
+    ${ARROW_PATH}/lib
     )
 
   find_path(ARROW_INCLUDE_DIR arrow/array.h PATHS

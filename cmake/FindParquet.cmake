@@ -26,8 +26,8 @@
 
 include(FindPkgConfig)
 
-if(NOT "$ENV{PARQUET_HOME}" STREQUAL "")
-    set(PARQUET_HOME "$ENV{PARQUET_HOME}")
+if(NOT "$ENV{ARROW_PATH}" STREQUAL "")
+    set(ARROW_PATH "$ENV{ARROW_PATH}")
 endif()
 
 if (MSVC)
@@ -38,18 +38,18 @@ if (MSVC)
   endif()
 
   find_library(PARQUET_SHARED_LIBRARIES NAMES parquet
-    PATHS ${PARQUET_HOME} NO_DEFAULT_PATH
+    PATHS ${ARROW_PATH} NO_DEFAULT_PATH
     PATH_SUFFIXES "bin" )
 
   get_filename_component(PARQUET_SHARED_LIBS ${PARQUET_SHARED_LIBRARIES} PATH )
 endif ()
 
-if(PARQUET_HOME)
+if(ARROW_PATH)
     set(PARQUET_SEARCH_HEADER_PATHS
-        ${PARQUET_HOME}/include
+        ${ARROW_PATH}/include
         )
     set(PARQUET_SEARCH_LIB_PATH
-        ${PARQUET_HOME}/lib
+        ${ARROW_PATH}/lib
         )
     find_path(PARQUET_INCLUDE_DIR parquet/api/reader.h PATHS
         ${PARQUET_SEARCH_HEADER_PATHS}
@@ -57,7 +57,7 @@ if(PARQUET_HOME)
         NO_DEFAULT_PATH
         )
     find_library(PARQUET_LIBRARIES NAMES parquet
-        PATHS ${PARQUET_HOME} NO_DEFAULT_PATH
+        PATHS ${ARROW_PATH} NO_DEFAULT_PATH
         PATH_SUFFIXES "lib")
     get_filename_component(PARQUET_LIBS ${PARQUET_LIBRARIES} PATH )
 
