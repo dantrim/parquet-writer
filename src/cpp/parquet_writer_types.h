@@ -57,5 +57,11 @@ namespace types {
     typedef std::vector<std::vector<buffer_value_t>> buffer_value_vec2d_t;
     typedef std::vector<std::vector<std::vector<buffer_value_t>>> buffer_value_vec3d_t;
     typedef std::variant<buffer_value_t, buffer_value_vec_t, buffer_value_vec2d_t, buffer_value_vec3d_t> buffer_t;
-}
+}; // namespace types
+
+    // convenience types to hide some internal ugly names
+    typedef std::vector<types::buffer_t> struct_list3d;
+    typedef std::vector<types::buffer_t> struct_list2d;
+    typedef std::vector<types::buffer_t> struct_list1d;
+    typedef types::buffer_value_vec_t struct_element;
 }; // namespace parquetwriter

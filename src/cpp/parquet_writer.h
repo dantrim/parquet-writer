@@ -30,8 +30,8 @@ namespace parquetwriter {
     };
 
     enum class FlushRule {
-        N_ROWS,
-        BUFFER_SIZE
+        NROWS,
+        BUFFERSIZE
     };
 
     class Writer {
@@ -39,21 +39,17 @@ namespace parquetwriter {
             Writer();
             ~Writer() = default;
 
-            std::string compression2str();
-            std::string flushrule2str();
+            void set_dataset_name(const std::string& dataset_name);
+            void set_output_directory(const std::string& output_directory);
 
-            void initialize_output(const std::string& dataset_name,
-                        const std::string& output_directory);
+            void set_layout(const std::string& field_layout_str);
+            void set_layout(const nlohmann::json& field_layout);
+            void set_metadata(const std::string& metdata_str);
+            void set_metadata(const nlohmann::json& metadata);
 
-            void load_schema(const std::string& field_layout_str,
-                    const std::string& metadata_json_str = "");
-            void load_schema(const nlohmann::json& field_layout,
-                    const nlohmann::json& metadata = {});
+            void initialize();
 
-            void new_file();
-            void initialize_writer();
-
-            void set_row_group_rule(const FlushRule& rule, const uint32_t& n);
+            void set_flush_rule(const FlushRule& rule, const uint32_t& n);
             void set_pagesize(const uint32_t& pagesize) { _data_pagesize = pagesize; }
 
             void fill(const std::string& field_path,
@@ -61,6 +57,11 @@ namespace parquetwriter {
 
             void finish();
 
+            const Compression& compression() { return _compression; }
+            const FlushRule& flushrule() { return _flush_rule; }
+
+            static const std::string compression2str(const Compression& compression);
+            static const std::string flushrule2str(const FlushRule& flush_rule);
 
         private :
 
@@ -87,7 +88,6 @@ namespace parquetwriter {
             uint32_t _row_length;
 
             Compression _compression;
-
             FlushRule _flush_rule;
 
             uint32_t _data_pagesize;
@@ -96,6 +96,7 @@ namespace parquetwriter {
             std::shared_ptr<arrow::Schema> _schema;
             std::vector<std::shared_ptr<arrow::Field>> _fields;
             std::vector<std::shared_ptr<arrow::Array>> _arrays;
+            nlohmann::json _file_metadata;
 
             // map of each column's builders
             std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>> _col_builder_map;
@@ -104,6 +105,7 @@ namespace parquetwriter {
             // methods
             //
             void update_output_stream();
+            void new_file();
 
             void flush();
 

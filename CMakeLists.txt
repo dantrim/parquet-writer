@@ -12,8 +12,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 find_package(Arrow REQUIRED)
 find_package(Parquet REQUIRED)
-#find_package(nlohmann_json REQUIRED)
-add_subdirectory(exts/)
-include_directories(exts/json/single_include)
+#add_subdirectory(exts/)
+#include_directories(exts/json/single_include)
 
 add_subdirectory(src/cpp/)

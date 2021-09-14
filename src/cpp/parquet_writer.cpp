@@ -19,13 +19,13 @@ Writer::Writer() :
     _field_fill_count(0),
     _n_rows_in_group(-1),
     _compression(Compression::UNCOMPRESSED),
-    _flush_rule(FlushRule::N_ROWS),
+    _flush_rule(FlushRule::NROWS),
     _data_pagesize(1024*1024*512)
 {}
 
-std::string Writer::compression2str() {
+const std::string Writer::compression2str(const Compression& compression) {
     std::string out = "";
-    switch(_compression) {
+    switch(compression) {
         case Compression::UNCOMPRESSED: { out = "UNCOMPRESSED"; break; }
         case Compression::GZIP: { out = "GZIP"; break; }
         case Compression::SNAPPY: { out = "SNAPPY"; break; }
@@ -33,84 +33,83 @@ std::string Writer::compression2str() {
     return out;
 }
 
-std::string Writer::flushrule2str() {
+const std::string Writer::flushrule2str(const FlushRule& flush_rule) {
     std::string out = "";
-    switch(_flush_rule) {
-        case FlushRule::N_ROWS: { out = "N_ROWS"; break; }
-        case FlushRule::BUFFER_SIZE: { out = "BUFFER_SIZE"; break; }
+    switch(flush_rule) {
+        case FlushRule::NROWS: { out = "N_ROWS"; break; }
+        case FlushRule::BUFFERSIZE: { out = "BUFFER_SIZE"; break; }
     }
     return out;
 }
 
-void Writer::load_schema(const std::string& field_layout_json_str,
-        const std::string& metadata_json_str) {
+void Writer::set_layout(const std::string& field_layout_json_str) {
 
-    nlohmann::json jlayout;
-    nlohmann::json jmetadata;
     try {
-        jlayout = nlohmann::json::parse(field_layout_json_str);
+        auto jlayout = nlohmann::json::parse(field_layout_json_str);
+        this->set_layout(jlayout);
     } catch(std::exception& e) {
         std::stringstream err;
-        err << "ERROR: Failed to parse provided JSON string for the field layout: " << e.what();
+        err << "ERROR: Failed to parse provided JSON string specifying the field layout, JSON exception caught: " << e.what();
         throw std::runtime_error(err.str());
     }
-
-    if(metadata_json_str != "") {
-        try {
-            jmetadata = nlohmann::json::parse(metadata_json_str);
-        } catch(std::exception& e) {
-            std::stringstream err;
-            err << "ERROR: Failed to parse provided JSON string for the file metadata: " << e.what();
-            throw std::runtime_error(err.str());
-        }
-    }
-
-    this->load_schema(jlayout, jmetadata);
 }
 
-void Writer::load_schema(const nlohmann::json& field_layout,
-        const nlohmann::json& metadata) {
+void Writer::set_layout(const nlohmann::json& field_layout) {
 
-    // create the fields and schema
     _fields = helpers::fields_from_json(field_layout);
     _schema = arrow::schema(_fields);
     _arrays.clear();
-
-    // attach the metadata
-    std::unordered_map<std::string, std::string> metadata_map;
-    metadata_map["metadata"] = metadata.dump();
-    arrow::KeyValueMetadata keyval_metadata(metadata_map);
-    _schema = _schema->WithMetadata(keyval_metadata.Copy());
-
-
+    if(!_file_metadata.empty()) {
+        this->set_metadata(_file_metadata);
+    }
     // create the column -> ArrayBuilder mapping
     _col_builder_map = helpers::col_builder_map_from_fields(_fields);
 
 }
 
-void Writer::initialize_output(const std::string& dataset_name, const std::string& output_directory) {
+void Writer::set_metadata(const std::string& metadata_str) {
+
+    if(metadata_str.empty()) return;
+    try {
+        _file_metadata = nlohmann::json::parse(metadata_str);
+        if(_schema) {
+            this->set_metadata(_file_metadata);
+        }
+    } catch(std::exception& e) {
+        std::stringstream err;
+        err << "ERROR: Failed to parse provided JSON string specifying the file metadata, JSON exception caught: " << e.what();
+        throw std::runtime_error(err.str());
+    }
+}
+
+void Writer::set_metadata(const nlohmann::json& metadata) {
+    _file_metadata = metadata;
+    if(_schema) {
+        std::unordered_map<std::string, std::string> metadata_map;
+        metadata_map["metadata"] = metadata.dump();
+        arrow::KeyValueMetadata keyval_metadata(metadata_map);
+        _schema = _schema->WithMetadata(keyval_metadata.Copy());
+    }
+}
+
+void Writer::set_dataset_name(const std::string& dataset_name) {
+
+    if(dataset_name.empty()) {
+        std::stringstream err;
+        err << "ERROR: Attempting to give output dataset an invalid name: \"\"";
+        throw std::runtime_error(err.str());
+    }
+    _dataset_name = dataset_name;
+}
+
+void Writer::set_output_directory(const std::string& output_directory) {
 
     _output_directory = output_directory;
-    _dataset_name = dataset_name;
-
-    std::string internal_path;
-    _fs = arrow::fs::FileSystemFromUriOrPath(std::filesystem::absolute(_output_directory),
-            &internal_path).ValueOrDie();
-    PARQUET_THROW_NOT_OK(_fs->CreateDir(internal_path));
-    _internal_fs = std::make_shared<arrow::fs::SubTreeFileSystem>(internal_path, _fs);
-
-    // create the output stream at the new location
-    update_output_stream();
-
-    // default RowGroup specification
-    if(_n_rows_in_group < 0) {
-        _n_rows_in_group = 250000 / _fields.size();
-    }
 }
 
 void Writer::new_file() {
     this->update_output_stream();
-    this->initialize_writer();
+    this->initialize();
 }
 
 void Writer::update_output_stream() {
@@ -124,7 +123,47 @@ void Writer::update_output_stream() {
     _file_count++;
 }
 
-void Writer::initialize_writer() {
+void Writer::initialize() {
+
+    if(_dataset_name.empty()) {
+        std::stringstream err;
+        err << "ERROR: Cannot initialize writer with empty dataset name";
+        throw std::logic_error(err.str());
+    }
+
+    if(!_schema) {
+        std::stringstream err;
+        err << "ERROR: Cannot initialize writer with empty Parquet schema";
+        throw std::logic_error(err.str());
+    }
+
+    if(_fields.size() == 0) {
+        std::stringstream err;
+        err << "ERROR: Cannot initialize writer with empty layout (no columns specified)";
+        throw std::logic_error(err.str());
+    }
+
+    //
+    // create the output path and filesystem handler
+    //
+    std::string internal_path;
+    _fs = arrow::fs::FileSystemFromUriOrPath(std::filesystem::absolute(_output_directory), &internal_path).ValueOrDie();
+    PARQUET_THROW_NOT_OK(_fs->CreateDir(internal_path));
+    _internal_fs = std::make_shared<arrow::fs::SubTreeFileSystem>(internal_path, _fs);
+
+    // create the output stream at the new location
+    update_output_stream();
+
+    //
+    // default RowGroup specification for now (need to make configurable) 
+    //
+    if(_n_rows_in_group < 0) {
+        _n_rows_in_group = 250000 / _fields.size();
+    }
+
+    //
+    // create the Parquet writer instance
+    //
 
     auto compression = arrow::Compression::UNCOMPRESSED;
     switch(_compression) {
@@ -148,10 +187,10 @@ void Writer::initialize_writer() {
                 &_file_writer));
 }
 
-void Writer::set_row_group_rule(const FlushRule& rule, const uint32_t& n) {
+void Writer::set_flush_rule(const FlushRule& rule, const uint32_t& n) {
 
-    if(rule == FlushRule::BUFFER_SIZE) {
-        throw std::runtime_error("ERROR: FlushRule::BUFFER_SIZE is not supported");
+    if(rule == FlushRule::BUFFERSIZE) {
+        throw std::runtime_error("ERROR: FlushRule::BUFFERSIZE is not supported");
     }
     _n_rows_in_group = n;
 
