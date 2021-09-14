@@ -225,10 +225,15 @@ objects with three `float32` typed fields are below,
 ```c++
 namespace pw = parquetwriter;
 
+// dummy values for the three fields of the struct
+float field0_data = 42.0;
+float field1_data = 84.0;
+float field2_data = 126.0;
+
 // one-dimensional case: list[struct{float32, float32, float32}]
 pw::struct_list1d my_1d_structlist_data;
 for(...) {
-  pw::struct_element struct_data{1.0, 2.0, 3.0};
+  pw::struct_element struct_data{field0_data, field1_data, field2_data};
   my_1d_structlist_data.push_back(struct_data);
 }
 writer.fill("my_1d_structlist", {my_1d_structlist_data});
@@ -238,7 +243,7 @@ pw::struct_list2d my_2d_structlist_data;
 for(...) {
   std::vector<pw::struct_element> inner_list_data;
   for(...) {
-    pw::struct_element struct_data{1.0, 2.0, 3.0};
+    pw::struct_element struct_data{field0_data, field1_data, field2_data};
     inner_list_data.push_back(struct_data);
   }
   my_2d_structlist_data.push_back(inner_list_data);
@@ -252,7 +257,7 @@ for(...) {
   for(...) {
     std::vector<pw::struct_element> inner_inner_list_data;
     for(...) {
-      pw::struct_element struct_data{1.0, 2.0, 3.0};
+      pw::struct_element struct_data{field1_data, field2_data, field3_data};
       inner_inner_list_data.push_back(struct_data);
     }
     inner_list_data.push_back(inner_inner_list_data);
