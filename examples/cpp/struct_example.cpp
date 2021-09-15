@@ -1,3 +1,9 @@
+//
+// example showing how to write structs to an output Parquet
+// file, in addition to more complex structures composed
+// of structs.
+//
+
 // parquet-writer
 #include "parquet_writer.h"
 

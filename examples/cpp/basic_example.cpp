@@ -1,3 +1,9 @@
+//
+// examples of how to write all of the basic data types by
+// creating a Parquet file with one column for each of the
+// basic data types.
+//
+
 // parquet-writer
 #include "parquet_writer.h"
 
