@@ -102,11 +102,10 @@ auto file_layout = R"(
 The above JSON specifies a Parquet file containing 3 columns
 named `int32_column`, `float_column`, and `double_column`
 holding `int32`, `float`, and `double` data types, respectively.
-
 Note that the `name` field associated with a given column
 is completely arbitrary.
 
-Specifying more complex data structures are detailed in the
+The specification for more complex data structures is detailed in the
 sections below, specifically
 going over how to declare columns storing `list` and `struct`
 typed data structures.
