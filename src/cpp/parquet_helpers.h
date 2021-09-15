@@ -86,8 +86,8 @@ namespace helpers {
         	{"uint16",  &parquetwriter::helpers::internal::ArrowTypeInit::get_uint16},
         	{"uint32",  &parquetwriter::helpers::internal::ArrowTypeInit::get_uint32},
         	{"uint64",  &parquetwriter::helpers::internal::ArrowTypeInit::get_uint64},
-        	{"float32",  &parquetwriter::helpers::internal::ArrowTypeInit::get_float32},
-        	{"float64",  &parquetwriter::helpers::internal::ArrowTypeInit::get_float64},
+        	{"float",  &parquetwriter::helpers::internal::ArrowTypeInit::get_float32},
+        	{"double",  &parquetwriter::helpers::internal::ArrowTypeInit::get_float64},
         	{"string",  &parquetwriter::helpers::internal::ArrowTypeInit::get_string}
 		};
 

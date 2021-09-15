@@ -18,14 +18,14 @@ int main(int argc, char* argv[]) {
         "fields": [
             {"name": "basic_struct", "type": "struct",
                         "fields":[
-                                  {"name": "float_field", "type": "float32"},
+                                  {"name": "float_field", "type": "float"},
                                   {"name": "int_field", "type": "int32"},
                                   {"name": "list_field", "type": "list",
                                                                  "contains": {"type": "int32"}}
                                  ]},
             {"name": "struct_list1d", "type": "list",
                         "contains": {"type": "struct", "fields":[
-                                               {"name": "float_field", "type": "float32"},
+                                               {"name": "float_field", "type": "float"},
                                                {"name": "int_field", "type": "int32"},
                                                {"name": "list_field", "type": "list",
                                                     "contains": {"type": "int32"}}
@@ -33,13 +33,13 @@ int main(int argc, char* argv[]) {
                                     }},
             {"name": "struct_with_struct", "type": "struct",
                         "fields":[
-                            {"name": "float_field", "type": "float32"},
+                            {"name": "float_field", "type": "float"},
                             {"name": "int_field", "type": "int32"},
                             {"name": "list_field", "type": "list",
                                             "contains": {"type": "int32"}},
                             {"name": "struct_field", "type": "struct",
                                 "fields":[
-                                    {"name": "float_field", "type": "float32"},
+                                    {"name": "float_field", "type": "float"},
                                     {"name": "int_field", "type": "int32"},
                                     {"name": "list_field", "type": "list",
                                                 "contains": {"type": "int32"}}
@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
                             {"name": "n", "type": "int32"},
                             {"name": "struct_list", "type": "list",
                                         "contains": {"type": "struct", "fields":[
-                                            {"name": "float_field", "type": "float32"},
+                                            {"name": "float_field", "type": "float"},
                                             {"name": "int_field", "type": "int32"},
                                             {"name": "list_field", "type": "list",
                                                         "contains": {"type": "int32"}}

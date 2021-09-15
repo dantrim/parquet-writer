@@ -29,34 +29,34 @@ int main(int argc, char* argv[]) {
                 {"name": "col5", "type": "uint16"},
                 {"name": "col6", "type": "uint32"},
                 {"name": "col7", "type": "uint64"},
-                {"name": "col8", "type": "float32"},
-                {"name": "col9", "type": "float64"},
+                {"name": "col8", "type": "float"},
+                {"name": "col9", "type": "double"},
                 {"name": "col10", "type": "list", "contains" : {"type": "int32"}},
-                {"name": "col11", "type": "list", "contains" : {"type": "float32"}},
+                {"name": "col11", "type": "list", "contains" : {"type": "float"}},
                 {"name": "col12", "type": "bool"},
                 {"name": "col13", "type": "struct", "fields":
                          [ {"name": "foo", "type": "uint32"},
-                           {"name": "bar", "type": "float64"}
+                           {"name": "bar", "type": "double"}
                          ]},
                 {"name": "col14", "type": "list", "contains" : {"type": "struct", "fields":
                          [ {"name": "faz", "type": "uint32"},
                            {"name": "baz", "type": "list", "contains" : {"type": "int32"}}
                          ]}},
                 {"name": "col15", "type": "list", "contains" : {"type": "list", "contains": {"type": "int32"}}},
-                {"name": "col16", "type": "list", "contains" : {"type": "list", "contains": {"type": "float32"}}},
+                {"name": "col16", "type": "list", "contains" : {"type": "list", "contains": {"type": "float"}}},
                 {"name": "col17", "type": "list",
                                             "contains" : {"type": "list",
                                             "contains": {"type": "list", "contains": {"type": "uint32"}}}},
                 {"name": "col18", "type": "list",
                                             "contains": {"type": "list",
                                             "contains": {"type": "struct", "fields":
-                                                [ {"name": "foo", "type": "float32"}, {"name": "bar", "type": "int32"} ]
+                                                [ {"name": "foo", "type": "float"}, {"name": "bar", "type": "int32"} ]
                                             }}},
                 {"name": "col19", "type": "list",
                                             "contains": {"type": "list",
                                             "contains": {"type": "list", 
                                             "contains": {"type": "struct", "fields":
-                                                [ {"name": "foo", "type": "float32"}, {"name": "bar", "type": "int32"} ]}
+                                                [ {"name": "foo", "type": "float"}, {"name": "bar", "type": "int32"} ]}
                                             }}}
             
              ]})"_json;

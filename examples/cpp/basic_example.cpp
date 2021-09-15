@@ -25,8 +25,8 @@ int main(int argc, char* argv[]) {
             {"name": "col6", "type": "uint16"},
             {"name": "col7", "type": "uint32"},
             {"name": "col8", "type": "uint64"},
-            {"name": "col9", "type": "float32"},
-            {"name": "col10", "type": "float64"},
+            {"name": "col9", "type": "float"},
+            {"name": "col10", "type": "double"},
             {"name": "col11", "type": "list", "contains": {"type": "bool"}},
             {"name": "col12", "type": "list", "contains": {"type": "int8"}},
             {"name": "col13", "type": "list", "contains": {"type": "int16"}},
@@ -36,8 +36,8 @@ int main(int argc, char* argv[]) {
             {"name": "col17", "type": "list", "contains": {"type": "uint16"}},
             {"name": "col18", "type": "list", "contains": {"type": "uint32"}},
             {"name": "col19", "type": "list", "contains": {"type": "uint64"}},
-            {"name": "col20", "type": "list", "contains": {"type": "float32"}},
-            {"name": "col21", "type": "list", "contains": {"type": "float64"}},
+            {"name": "col20", "type": "list", "contains": {"type": "float"}},
+            {"name": "col21", "type": "list", "contains": {"type": "double"}},
             {"name": "col22", "type": "list", "contains": {"type": "list",
                                               "contains": {"type": "bool"}}},
             {"name": "col23", "type": "list", "contains": {"type": "list",
@@ -57,9 +57,9 @@ int main(int argc, char* argv[]) {
             {"name": "col30", "type": "list", "contains": {"type": "list",
                                               "contains": {"type": "uint64"}}},
             {"name": "col31", "type": "list", "contains": {"type": "list",
-                                              "contains": {"type": "float32"}}},
+                                              "contains": {"type": "float"}}},
             {"name": "col32", "type": "list", "contains": {"type": "list",
-                                              "contains": {"type": "float64"}}},
+                                              "contains": {"type": "double"}}},
             {"name": "col33", "type": "list", "contains": {"type": "list",
                                               "contains": {"type": "list",
                                               "contains": {"type": "bool"}}}},
@@ -89,10 +89,10 @@ int main(int argc, char* argv[]) {
                                               "contains": {"type": "uint64"}}}},
             {"name": "col42", "type": "list", "contains": {"type": "list",
                                               "contains": {"type": "list",
-                                              "contains": {"type": "float32"}}}},
+                                              "contains": {"type": "float"}}}},
             {"name": "col43", "type": "list", "contains": {"type": "list",
                                               "contains": {"type": "list",
-                                              "contains": {"type": "float64"}}}}
+                                              "contains": {"type": "double"}}}}
         ]
     }
     )"_json;
