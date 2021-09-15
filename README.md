@@ -42,7 +42,7 @@ auto file_layout = R"(
 namespace pw = parquetwriter;
 pw::Writer writer;
 writer.set_layout(file_layout);
-writer.set_dataset_name("my_dataset"); // must give a  name
+writer.set_dataset_name("my_dataset"); // must give a name
 writer.initialize();
 
 // get and fill the data
