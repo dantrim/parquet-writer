@@ -290,7 +290,7 @@ writer.fill("my_3d_structlist", {my_3d_structlist_data});
 
 ## Examples
 
-The basics of filling basic types using the corresponding C++ data types
+The procedure of filling [basic types](#supported-data-types) using the corresponding C++ data types
 can be seen in the [section above](#basic-usage).
 
 More complete examples for how to write any of the supported
