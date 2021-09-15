@@ -12,10 +12,10 @@ and to subsequently write to that file.
 The `parquet-writer` library aims to provide support for:
 
   * Specifying the layout of Parqeut files (what types of columns to store) via a simple JSON schema
-  * Supports storage for numeric data types and boolean values
-  * Supports storage of one-, two-, and three-dimensional lists
-  * Supports storage of struct objects with any number of arbitrarily typed fields
-  * A common interface for writing to the output file
+  * Storage for numeric data types and boolean values
+  * Storage of one-, two-, and three-dimensional lists
+  * Storage of struct objects with any number of arbitrarily typed fields
+  * A common interface for writing data types to output Parquet files
 
 ## Basic Usage
 
@@ -32,7 +32,7 @@ The basic usage is illustrated in the following:
 auto file_layout = R"(
   {
     "fields": [
-      {"name": "column0", "type": "float32"},
+      {"name": "column0", "type": "float"},
       {"name": "column1", "type": "int32"}
     ]
   }
@@ -42,7 +42,7 @@ auto file_layout = R"(
 namespace pw = parquetwriter;
 pw::Writer writer;
 writer.set_layout(file_layout);
-writer.set_dataset_name("my_dataset"); // must give a  name
+writer.set_dataset_name("my_dataset"); // must give a name
 writer.initialize();
 
 // get and fill the data
@@ -58,42 +58,59 @@ writer.fill("column1", {column1_value});
 writer.finish();
 ```
 
-## Data Types
+## Supported Data Types
 
+The primary data types that can be written to output Parquet files
+by the `parquet-writer` library are summarized in the table below,
 
-### Basic Data Types
+| Type | Supported Types in `parquet-writer` |
+| --- | --- |
+| **Logical types** | `bool` |
+| **Signed integers** | `int8`, `int16`, `int32`, `int64` |
+| **Unsigned integers** | `uint8`, `uint16`, `uint32`, `uint64` |
+| **Floating Point** | `float` (32-bit precision)|
+|                    | `double` (64-bit precision) |
+| **Lists** | 1 dimensional: `list[<type>]` |
+|       | 2 dimensional: `list[list[<type>]]` |
+|       | 3 dimensional: `list[list[list[<type>]]]` |
+| **Structs** | `struct{<fields>}` |
+| **List of Structs** | 1 dimensional: `list[struct{<fields>}]` |
+|                 | 2 dimensional: `list[list[struct{<fields>}]` |
+|                 | 3 dimensional: `list[list[list[struct{<fields>}]` |
 
-The basic data types that can be written to the output Parquet files
-using `parquet-writer` and their correspondence to their C++
-types are detailed in the table below,
+Where `struct{<fields>}` demarcates a data type comprised of any number
+of arbitrarily-typed named-fields (think: C++ `struct`). A `struct` data type
+can itself have fields that are of the `struct` data type and/or of
+a `list` data type, as well.
 
-| C++ type | `parquet-writer` type |
-| ---      | ---       |
-| `bool`   | `"bool"`  |
-| `uint8_t`/`int8_t` | `"uint8"`/`"int8"` |
-| `uint16_t`/`int16_t` | `"uint16"`/`"int16"` |
-| `uint32_t`/`int32_t` | `"uint32"`/`"int32"` |
-| `uint64_t`/`int64_t` | `"uint64"`/`"int64"` |
-| `float` | `"float32"`|
-| `double` | `"float64"` |
+## Parquet File Layout Specification
 
-The `parquet-writer` type name for a given C++ type you wish to store is
-what is specified in the JSON that defines the file layout.
+Specifying the desired layout of a given Parquet file
+with the `parquet-writer` library is done using JSON.
+For basic types one need only provide the name of the output column
+to be stored as well as its corresponding data type, as in the following:
 
-The JSON layout specification for columns holding these basic types is
-done using the `parquet-writer` type name:
 ```c++
 auto file_layout = R"(
   "fields": [
     {"name": "int32_column", "type": "int32"},
-    {"name": "float_column", "type": "float32"},
-    {"name": "double_column", "type": "float64"}
+    {"name": "float_column", "type": "float"},
+    {"name": "double_column", "type": "double"}
   ]
 )"_json;
 ```
+The above JSON specifies a Parquet file containing 3 columns
+named `int32_column`, `float_column`, and `double_column`
+holding `int32`, `float`, and `double` data types, respectively.
+Note that the `name` field associated with a given column
+is completely arbitrary.
 
-Examples of filling basic types using the corresponding C++ data types
-can be seen in the [section above](#basic-usage).
+The specification for more complex data structures is detailed in the
+sections below, specifically
+going over how to declare columns storing `list` and `struct`
+typed data structures.
+
+Complete examples can be found in the [Examples](#examples) section.
 
 ### Lists of Basic Data Types
 
@@ -104,13 +121,13 @@ the JSON layout provided to a given `parquetwriter::Writer` instance.
 For example, the following JSON layout specifies a Parquet file
 containing a one-dimensional variable-lengthed list column
 named `my_1d_list`, a two-dimensional variable-lengthed list column named `my_2d_list`,
-and a three-dimensional list column named `my_3d_list` holding
-C++ `float`, `uint32_t`, and `double` types, respectively:
+and a three-dimensional variable-lengthed list column named `my_3d_list` holding
+`float`, `uint32`, and `double` types, respectively:
 ```c++
 auto file_layout = R"(
   {
     "fields": [
-      {"name": "my_1d_list", "type": "list", "contains": {"type": "float32"}},
+      {"name": "my_1d_list", "type": "list", "contains": {"type": "float"}},
       {"name": "my_2d_list",
                 "type": "list", "contains":
                         {"type": "list", "contains": {"type": "uint32"}}
@@ -118,7 +135,7 @@ auto file_layout = R"(
       {"name": "my_3d_list",
                 "type": "list", "contains":
                        {"type": "list", "contains":
-                                {"type": "list", "contains": {"type": "float64"}}
+                                {"type": "list", "contains": {"type": "double"}}
                        }
       }   
     ]
@@ -126,13 +143,13 @@ auto file_layout = R"(
 )"_json;
 ```
 As can be seen in the above, specifying `list` types for output columns requires
-an additional `contains` object in the JSON object defining the column. This
+an additional `contains` object in the JSON defining the column. This
 `contains` object defines the data type to be stored in the output variable-lengthed
 list.
 
-Filling these `list` types with an `parquetwriter::Writer` instance is done
+Filling these `list` types with a `parquetwriter::Writer` instance is done
 using standard `C++` `std::vector` instances of the associated `C++` type.
-For example, taking the example specification above,
+For example, taking the above specification one would do:
 ```c++
 // one-dimensional case
 std::vector<float> my_1d_list_data{1.2, 2.3, 3.4};
@@ -157,19 +174,20 @@ writer.fill("my_3d_list", {my_3d_list_data});
 Storing complex data structures with
 any number of named fields of possibly different data type (i.e. a `C++` `struct`) is possible.
 These correspond to Parquet's [StructType](https://arrow.apache.org/docs/cpp/api/datatype.html#_CPPv4N5arrow10StructTypeE).
-
 Specifying these complex data types is done via the `struct` type.
-For example, storing a structure named `my_struct` having three fields named (typed) `field0` (`int32`),
-`field1` (`float32`), `field2` (one-dimensional list of `float32`)
-is done as follows,
+
+For example, storing a structure named `my_struct` having three fields named `field0`,
+`field1`, and `field2` of data types `int32`, `float`,
+and `list[float]`, respectively, is done as follows:
+
 ```c++
 auto file_layout = R"(
   "fields": [
     {"name": "my_struct", "type": "struct",
                                   "fields": [
                                     {"name": "field0", "type": "int32"},
-                                    {"name": "field1", "type": "float32"},
-                                    {"name": "field2", "type": "list", "contains": {"type": "float32"}}
+                                    {"name": "field1", "type": "float"},
+                                    {"name": "field2", "type": "list", "contains": {"type": "float"}}
                                   ]}
   ]
 )"_json;
@@ -177,14 +195,14 @@ auto file_layout = R"(
 
 As can be seen, `struct` types contain an additional `fields` array, which contains an array of
 the usual `{"name": ..., "type": ...}` objects which describe each of the fields contained
-in the output data structure.
+in the output `struct` data structure.
 
 #### Filling Struct Data Types
 
-Since the `struct` type implies a complex data structure with arbitrarily typed nested fields,
+Since the `struct` type implies a complex data structure with arbitrarily-typed nested fields,
 there is a convenience type that is used for filling this data type: `parquetwriter::struct_element`.
 An instance of `parquetwriter::struct_element` can be treated as an `std::vector`, but one that
-holds any of the supported types (as well as lists of them).
+holds any of the [supported types](#supported-data-types).
 For example, one would fill the three-field structure `my_struct` from above as follows:
 ```c++
 namespace pw = parquetwriter;
@@ -223,7 +241,7 @@ lists of `struct` typed objects: `parquetwriter::struct_list1d`, `parquetwriter:
 and `parquetwriter::struct_list3d`.
 
 Examples of filling one-, two-, and three-dimensional lists containing `struct` typed
-objects with three `float32` typed fields are below,
+objects with three `float` typed fields are below,
 
 ```c++
 namespace pw = parquetwriter;
@@ -233,7 +251,7 @@ float field0_data = 42.0;
 float field1_data = 84.0;
 float field2_data = 126.0;
 
-// one-dimensional case: list[struct{float32, float32, float32}]
+// one-dimensional case: list[struct{float, float, float}]
 pw::struct_list1d my_1d_structlist_data;
 for(...) {
   pw::struct_element struct_data{field0_data, field1_data, field2_data};
@@ -241,7 +259,7 @@ for(...) {
 }
 writer.fill("my_1d_structlist", {my_1d_structlist_data});
 
-// two-dimensional case: list[list[struct{float32, float32, float32}]]
+// two-dimensional case: list[list[struct{float, float, float}]]
 pw::struct_list2d my_2d_structlist_data;
 for(...) {
   std::vector<pw::struct_element> inner_list_data;
@@ -253,7 +271,7 @@ for(...) {
 }
 writer.fill("my_2d_structlist", {my_2d_structlist_data});
 
-// three-dimensional case: list[list[list[struct{float32, float32, float32}]]]
+// three-dimensional case: list[list[list[struct{float, float, float}]]]
 pw::struct_list3d my_3d_structlist_data;
 for(...) {
   std::vector<std::vector<pw::struct_element>> inner_list_data;
@@ -270,7 +288,75 @@ for(...) {
 writer.fill("my_3d_structlist", {my_3d_structlist_data});
 ```
 
+Further examples illustrating `struct` data types can be found in [examples/struct-example](examples/cpp/struct_example.cpp).
 
+### Structs with Struct Fields
+
+You may need to have a `struct` typed column which itself contains a field that is a `struct`.
+Specifying this data structure in JSON follows from the above. For example,
+```c++
+auto file_layout = R"(
+  "fields": [
+    {"name": "outer_struct", "type": "struct",
+                             "fields":[
+                               {"name": "field0", "type": "int32"},
+                               {"name": "inner_struct", "type": "struct",
+                                                        "fields":[
+                                                          {"name": "inner_field0", "type": "float"},
+                                                          {"name": "inner_field1", "type": "int32"}
+                                                        ]}
+                             ]}
+  ]
+)"_json;
+```
+The above specifies a column named `outer_struct` which contains the following fields:
+  * `field0` with `int32` type
+  * `inner_struct` with `struct` type with the following fields:
+    * `inner_field0` with type `float`
+    * `inner_field1` with type `int32`
+
+#### Filling Structs with Struct Fields
+
+Filling the above `struct` column that has an internal `struct` field would be done as follows,
+```C++
+// data for the non-struct fields of the struct "outer_struct" 
+int32_t field0_data = 42;
+parquetwriter::struct_element outer_struct_data{field0_data};
+
+// data for the non-struct fields of the internal struct "inner_struct"
+float inner_field0_data = 42.5;
+int32_t inner_field1_data = 42;
+parquetwriter::struct_element inner_struct_data{inner_field0_data, inner_field1_data};
+
+// write the data to the Parquet file
+writer.fill("outer_struct", {outer_struct_data});
+writer.fill("outer_struct.inner_struct", {inner_struct_data});
+```
+
+As can be seen, for each level of `struct` nesting one provides a `parquetwriter::struct_element` containing the data
+for all non-`struct` fields. Internal `struct` fields are then provided their
+`parquetwriter::struct_element` using the dot (`.`) notation in the call to `parquetwriter::Writer::fill`:
+`<outer_struct_level>.<inner_struct_level>`.
+
+Note that the same number of calls to `parquetwriter::Writer::fill` must be made for each of the
+nested structs, otherwise there will be a mismatch in the sizes (number of rows) of columns
+in the output Parquet file, which leads to an error.
+
+Further examples illustrating `struct` data types can be found in [examples/struct-example](examples/cpp/struct_example.cpp).
+
+## Examples
+
+The procedure of filling [basic types](#supported-data-types) using the corresponding C++ data types
+can be seen in the [section above](#basic-usage).
+
+More complete examples for how to write any of the supported
+data types to a Parquet file are found in the [examples](examples/cpp)
+directory:
+
+  * [examples/basic-example](examples/cpp/basic_example.cpp): Example showing how to fill all supported data types (other than those with `struct` type)
+  * [examples/struct-example](examples/cpp/struct_example.cpp): Example showing how to fill `struct` type objects of various complexities
+
+These examples are built alongside the [build of the `parquet-writer` library](#building-the-parquet-writer-library).
 
 ## Building the `parquet-writer` Library
 
