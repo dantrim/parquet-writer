@@ -149,7 +149,7 @@ list.
 
 Filling these `list` types with an `parquetwriter::Writer` instance is done
 using standard `C++` `std::vector` instances of the associated `C++` type.
-For example, taking the example specification above,
+For example, taking the above specification one would do:
 ```c++
 // one-dimensional case
 std::vector<float> my_1d_list_data{1.2, 2.3, 3.4};
