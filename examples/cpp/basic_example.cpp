@@ -19,6 +19,9 @@ int main(int argc, char* argv[]) {
     // specify the Parquet file data layout (names are arbitrary),
     // can be taken from a file but here we use a JSON string literal
     //
+    // note: anywhere where a JSON object is used, can also be replaced
+    //          with a JSON object serialized to std::string
+    //
     auto layout = R"(
     {
         "fields": [
@@ -105,6 +108,9 @@ int main(int argc, char* argv[]) {
 
     //
     // provide arbitrary keyvalue metadata JSON object to store in the Parquet file
+    //
+    // note: anywhere where a JSON object is used, can also be replaced
+    //          with a JSON object serialized to std::string
     // 
     auto metadata = R"(
     {
