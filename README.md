@@ -90,11 +90,6 @@ with the `parquet-writer` library is done using JSON.
 For basic types one need only provide the name of the output column
 to be stored as well as its corresponding data type, as in the following:
 
-Specifying that these data types be written to your Parquet file
-is done via JSON, following a simple yet sufficient JSON schema.
-For example, the following JSON specifies a Parquet file
-containing 3 columns of type `int32`, `float`, and `double`:
-
 ```c++
 auto file_layout = R"(
   "fields": [
