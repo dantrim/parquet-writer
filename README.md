@@ -9,14 +9,13 @@ simple to both specify the desired layout of a Parquet file (i.e.
 the number and types of columns) to be written
 and to subsequently write to that file.
 
-The `parquet-writer` library allows you to specify your file layout (i.e. what types
-of columns to store) using a simple JSON schema and supports almost all of the numeric
-[data types supported by Parquet](https://arrow.apache.org/docs/cpp/api/datatype.html)
-as well as `boolean` values.
+The `parquet-writer` library aims to provide support for:
 
-The `parquet-writer` also supports one, two, and three dimensional nesting of the supported types,
-as well as supporting storing arbitrary struct-like objects with any
-number of fields as long as they are of a supported basic types.
+  * Specifying the layout of Parqeut files (what types of columns to store) via a simple JSON schema
+  * Supports storage for numeric data types and boolean values
+  * Supports storage of one-, two-, and three-dimensional lists
+  * Supports storage of struct objects with any number of arbitrarily typed fields
+  * A common interface for writing to the output file
 
 ## Basic Usage
 
@@ -43,7 +42,7 @@ auto file_layout = R"(
 namespace pw = parquetwriter;
 pw::Writer writer;
 writer.set_layout(file_layout);
-writer.set_dataset_name("my_dataset");
+writer.set_dataset_name("my_dataset"); // must give a  name
 writer.initialize();
 
 // get and fill the data
@@ -61,6 +60,7 @@ writer.finish();
 
 ## Data Types
 
+
 ### Basic Data Types
 
 The basic data types that can be written to the output Parquet files
@@ -76,6 +76,9 @@ types are detailed in the table below,
 | `uint64_t`/`int64_t` | `"uint64"`/`"int64"` |
 | `float` | `"float32"`|
 | `double` | `"float64"` |
+
+The `parquet-writer` type name for a given C++ type you wish to store is
+what is specified in the JSON that defines the file layout.
 
 The JSON layout specification for columns holding these basic types is
 done using the `parquet-writer` type name:
