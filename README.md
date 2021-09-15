@@ -143,7 +143,7 @@ auto file_layout = R"(
 )"_json;
 ```
 As can be seen in the above, specifying `list` types for output columns requires
-an additional `contains` object in the JSON object defining the column. This
+an additional `contains` object in the JSON defining the column. This
 `contains` object defines the data type to be stored in the output variable-lengthed
 list.
 
