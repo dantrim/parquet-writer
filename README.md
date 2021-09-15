@@ -147,7 +147,7 @@ an additional `contains` object in the JSON defining the column. This
 `contains` object defines the data type to be stored in the output variable-lengthed
 list.
 
-Filling these `list` types with an `parquetwriter::Writer` instance is done
+Filling these `list` types with a `parquetwriter::Writer` instance is done
 using standard `C++` `std::vector` instances of the associated `C++` type.
 For example, taking the above specification one would do:
 ```c++
