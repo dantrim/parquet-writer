@@ -319,11 +319,11 @@ The above specifies a column named `outer_struct` which contains the following f
 
 Filling the above `struct` column that has an internal `struct` field would be done as follows,
 ```C++
-// non-struct data for the fields of the struct "outer_struct" 
+// data for the non-struct fields of the struct "outer_struct" 
 int32_t field0_data = 42;
 parquetwriter::struct_element outer_struct_data{field0_data};
 
-// non-struct data for the fields of the internal struct "inner_struct"
+// data for the non-struct fields of the internal struct "inner_struct"
 float inner_field0_data = 42.5;
 int32_t inner_field1_data = 42;
 parquetwriter::struct_element inner_struct_data{inner_field0_data, inner_field1_data};
