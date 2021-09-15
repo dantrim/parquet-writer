@@ -212,3 +212,7 @@ dmypy.json
 
 # visual studio code
 *.vscode
+
+# parquet files
+*.parquet
+*.parq
