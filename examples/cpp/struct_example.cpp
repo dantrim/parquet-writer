@@ -48,7 +48,10 @@ int main(int argc, char* argv[]) {
                         ]},
             {"name": "struct_with_struct_list", "type": "struct",
                         "fields":[
-                            {"name": "n", "type": "int32"},
+                            {"name": "float_field", "type": "float"},
+                            {"name": "int_field", "type": "int32"},
+                            {"name": "list_field", "type": "list",
+                                            "contains": {"type": "int32"}},
                             {"name": "struct_list", "type": "list",
                                         "contains": {"type": "struct", "fields":[
                                             {"name": "float_field", "type": "float"},
@@ -102,11 +105,6 @@ int main(int argc, char* argv[]) {
         struct_list_data.push_back(struct_data);
     } // i
 
-    // column "struct_with_struct_list"
-    //  - outer struct field "n" for length of list of the inner list of structs
-    //  - inner list of structs will use the same data as in "struct_list_data"
-    int32_t n = struct_list_data.size();
-    pw::struct_element struct_n{n};
 
     //
     // fill a couple of rows with the same set of dummy data in each
@@ -124,8 +122,9 @@ int main(int argc, char* argv[]) {
         writer.fill("struct_with_struct.struct_field", {basic_struct_data});
 
         // struct with a field that is a list of structs
-        // note: the outer struct must always have fields to be filled if the inner struct is to be filled
-        writer.fill("struct_with_struct_list", {struct_n});
+        // note #1: the outer struct must always have fields to be filled if the inner struct is to be filled
+        // note #2: fill the internal structs' fields independently of the outer structs' fields
+        writer.fill("struct_with_struct_list", {basic_struct_data});
         writer.fill("struct_with_struct_list.struct_list", {struct_list_data});
     } // irow
 
