@@ -36,6 +36,8 @@ def main() :
         if "metadata" in keyval_metadata :
             keyval_metadata = json.loads(keyval_metadata["metadata"])
             print(json.dumps(keyval_metadata, indent = 4))
+        else :
+            print("{}")
     else :
         print("{}")
 
