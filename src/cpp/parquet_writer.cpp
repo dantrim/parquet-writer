@@ -637,8 +637,97 @@ void Writer::fill(const std::string& field_path,
                         if(auto v = std::get_if<std::vector<double>>(&field_data)) {
                             helpers::fill<std::vector<double>>(*v, field_builder.get());
                             field_ok = true;
+                        } else
+                        // 2D list field
+                        if(auto v = std::get_if<std::vector<std::vector<bool>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<bool>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<uint8_t>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<uint8_t>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<uint16_t>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<uint16_t>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<uint32_t>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<uint32_t>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<uint64_t>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<uint64_t>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<int8_t>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<int8_t>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<int16_t>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<int16_t>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<int32_t>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<int32_t>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<int64_t>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<int64_t>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<float>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<float>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<double>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<double>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<std::vector<bool>>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<std::vector<bool>>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<std::vector<uint8_t>>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<std::vector<uint8_t>>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<std::vector<uint16_t>>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<std::vector<uint16_t>>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<std::vector<uint32_t>>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<std::vector<uint32_t>>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<std::vector<uint64_t>>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<std::vector<uint64_t>>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<std::vector<int8_t>>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<std::vector<int8_t>>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<std::vector<int16_t>>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<std::vector<int16_t>>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<std::vector<int32_t>>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<std::vector<int32_t>>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<std::vector<int64_t>>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<std::vector<int64_t>>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<std::vector<float>>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<std::vector<float>>>>(*v, field_builder.get());
+                            field_ok = true;
+                        } else
+                        if(auto v = std::get_if<std::vector<std::vector<std::vector<double>>>>(&field_data)) {
+                            helpers::fill<std::vector<std::vector<std::vector<double>>>>(*v, field_builder.get());
+                            field_ok = true;
                         } else {
-                            throw std::logic_error("ERROR Unhandled fill type");
+                            throw std::logic_error("ERROR Unhandled fill type for struct field");
                         }
                         break;
                     default:

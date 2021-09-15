@@ -117,7 +117,6 @@ int main(int argc, char* argv[]) {
         struct_list_data.push_back(struct_data);
     } // i
 
-
     //
     // fill a couple of rows with the same set of dummy data in each
     //
