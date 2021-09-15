@@ -356,6 +356,8 @@ directory:
   * [examples/basic-example](examples/cpp/basic_example.cpp): Example showing how to fill all supported data types (other than those with `struct` type)
   * [examples/struct-example](examples/cpp/struct_example.cpp): Example showing how to fill `struct` type objects of various complexities
 
+These examples are built alongside the [build of the `parquet-writer` library](#building).
+
 ## Building the `parquet-writer` Library
 
 Below are the steps to build the `parquet-writer` shared library for your system.
