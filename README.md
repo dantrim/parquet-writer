@@ -288,6 +288,58 @@ for(...) {
 writer.fill("my_3d_structlist", {my_3d_structlist_data});
 ```
 
+### Structs with Struct Fields
+
+You may need to have a `struct` typed column which itself contains a field that is a `struct`.
+Specifying this data structure in JSON follows from the above. For example,
+```c++
+auto file_layout = R"(
+  "fields": [
+    {"name": "outer_struct", "type": "struct",
+                             "fields":[
+                               {"name": "field0", "type": "int32"},
+                               {"name": "inner_struct", "type": "struct",
+                                                        "fields":[
+                                                          {"name": "inner_field0", "type": "float"},
+                                                          {"name": "inner_field1", "type": "int32"}
+                                                        ]}
+                             ]}
+  ]
+)"_json;
+```
+The above specifies a column named `outer_struct` which contains the following fields:
+  * `field0` with `int32` type
+  * `inner_struct` with `struct` type with the following fields:
+    * `inner_field0` with type `float`
+    * `inner_field1` with type `int32`
+
+#### Filling Structs with Struct Fields
+
+Filling the above `struct` column that has an internal `struct` field would be done as follows,
+```C++
+// non-struct data for the fields of the struct "outer_struct" 
+int32_t field0_data = 42;
+parquetwriter::struct_element outer_struct_data{field0_data};
+
+// non-struct data for the fields of the internal struct "inner_struct"
+float inner_field0_data = 42.5;
+int32_t inner_field1_data = 42;
+parquetwriter::struct_element inner_struct_data{inner_field0_data, inner_field1_data};
+
+// write the data to the Parquet file
+writer.fill("outer_struct", {outer_struct_data});
+writer.fill("outer_struct.inner_struct", {inner_struct_data});
+```
+
+As can be seen, for each level of `struct` nesting one provides a `parquetwriter::struct_element` containing the data
+for all non-`struct` fields. Internal `struct` fields are then provided their
+`parquetwriter::struct_element` using the dot (`.`) notation in the call to `parquetwriter::Writer::fill`:
+`<outer_struct_level>.<inner_struct_level>`.
+
+Note that the same number of calls to `parquetwriter::Writer::fill` must be made for each of the
+nested structs, otherwise there will be a mismatch in the sizes (number of rows) of columns
+in the output Parquet file, which leads to an error.
+
 ## Examples
 
 The procedure of filling [basic types](#supported-data-types) using the corresponding C++ data types
