@@ -12,6 +12,8 @@ and to subsequently write to that file.
 The `parquet-writer` library aims to provide support for:
 
   * Specifying the layout of Parqeut files (what types of columns to store) via a simple JSON schema
+    * Any method that requires JSON, the JSON can be of [`nlohmann/json`](https://github.com/nlohmann/json) or serialized to `std::string`, meaning
+      that the user does not have to depend on [`nlohmann/json`](https://github.com/nlohmann/json) directly
   * Storage for numeric data types and boolean values
   * Storage of one-, two-, and three-dimensional lists
   * Storage of struct objects with any number of arbitrarily typed fields
