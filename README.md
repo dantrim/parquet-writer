@@ -288,6 +288,8 @@ for(...) {
 writer.fill("my_3d_structlist", {my_3d_structlist_data});
 ```
 
+Further examples illustrating `struct` data types can be found in [examples/struct-example](examples/cpp/struct_example.cpp).
+
 ### Structs with Struct Fields
 
 You may need to have a `struct` typed column which itself contains a field that is a `struct`.
@@ -339,6 +341,8 @@ for all non-`struct` fields. Internal `struct` fields are then provided their
 Note that the same number of calls to `parquetwriter::Writer::fill` must be made for each of the
 nested structs, otherwise there will be a mismatch in the sizes (number of rows) of columns
 in the output Parquet file, which leads to an error.
+
+Further examples illustrating `struct` data types can be found in [examples/struct-example](examples/cpp/struct_example.cpp).
 
 ## Examples
 
