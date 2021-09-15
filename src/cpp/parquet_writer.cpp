@@ -1,6 +1,7 @@
 #include "parquet_writer.h"
 #include "parquet_helpers.h"
 
+#include <iostream>
 //std/stl
 #include <sstream>
 #include <filesystem>
@@ -57,6 +58,8 @@ void Writer::set_layout(const std::string& field_layout_json_str) {
 void Writer::set_layout(const nlohmann::json& field_layout) {
 
     _fields = helpers::fields_from_json(field_layout);
+    for(auto& f : _fields) {
+    }
     _schema = arrow::schema(_fields);
     _arrays.clear();
     if(!_file_metadata.empty()) {
@@ -192,6 +195,7 @@ void Writer::set_flush_rule(const FlushRule& rule, const uint32_t& n) {
     if(rule == FlushRule::BUFFERSIZE) {
         throw std::runtime_error("ERROR: FlushRule::BUFFERSIZE is not supported");
     }
+    _flush_rule = rule;
     _n_rows_in_group = n;
 
 }
@@ -199,27 +203,40 @@ void Writer::set_flush_rule(const FlushRule& rule, const uint32_t& n) {
 void Writer::fill(const std::string& field_path,
         const std::vector<types::buffer_t>& data_buffer) {
 
+
     if(data_buffer.size() == 0) {
         std::stringstream err;
         err << "ERROR: Cannot fill node \"" << field_path << "\" with empty data buffer";
         throw std::runtime_error(err.str());
     }
 
+    size_t pos_parent = field_path.find_first_of("/.");
+    //size_t pos_slash = field_path.find('/');
+    //size_t pos_dot = field_path.find_first_of("./");
+
     // get the parent column builder for this field
     arrow::ArrayBuilder* builder = nullptr;
-    size_t pos = field_path.find('/');
-    if(pos != std::string::npos) {
-        std::string parent_column_name = field_path.substr(0, pos);
-        auto col_map = _col_builder_map.at(parent_column_name);
-        if(col_map.count(field_path) == 0) {
-            std::stringstream err;
-            err << "ERROR: Cannot fill node with name \"" << field_path << "\", it is not in the builder map";
-            throw std::runtime_error(err.str());
-        }
-        builder = _col_builder_map.at(parent_column_name).at(field_path);
+
+    std::string parent_column_name;
+    if(pos_parent != std::string::npos) {
+        parent_column_name = field_path.substr(0, pos_parent);
     } else {
-        builder = _col_builder_map.at(field_path).at(field_path);
+        parent_column_name = field_path;
     }
+
+    if(_col_builder_map.count(parent_column_name) == 0) {
+        std::stringstream err;
+        err << "ERROR: Could not find parent column with name \"" << parent_column_name << "\" in loaded builders";
+        throw std::runtime_error(err.str());
+    }
+
+    auto col_map = _col_builder_map.at(parent_column_name);
+    if(col_map.count(field_path) == 0) {
+        std::stringstream err;
+        err << "ERROR: Cannot fill node with name \"" << field_path << "\", it is not in the builder map";
+        throw std::runtime_error(err.str());
+    }
+    builder = _col_builder_map.at(parent_column_name).at(field_path);
 
     //auto builder = _col_builder_map.at(field_path);
     auto builder_type = builder->type();
@@ -498,7 +515,13 @@ void Writer::fill(const std::string& field_path,
 
                 // don't consider inner structs, they must be called
                 // manually with a new call to "fill"
-                if(field_type->id() == arrow::Type::STRUCT) continue;
+
+                // for structs within structs, you MUST fill from outer to inner
+                // e.g.
+                //      writer.fill("struct", {struct_data});
+                //      writer.fill("struct.inner_struct", {inner_struct_data});
+                if(ifield >= field_data_vec.size()) break;
+                if(field_type->id() == arrow::Type::STRUCT) { ifield--; continue; }
 
                 bool field_ok = false;
                 types::buffer_value_t field_data = field_data_vec.at(ifield);

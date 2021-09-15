@@ -14,3 +14,4 @@ find_package(Arrow REQUIRED)
 find_package(Parquet REQUIRED)
 
 add_subdirectory(src/cpp/)
+add_subdirectory(examples/cpp/)

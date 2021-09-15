@@ -46,6 +46,7 @@ namespace parquetwriter {
             void set_layout(const nlohmann::json& field_layout);
             void set_metadata(const std::string& metdata_str);
             void set_metadata(const nlohmann::json& metadata);
+            void set_compression(const Compression& compression) { _compression = compression; }
 
             void initialize();
 
