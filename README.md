@@ -121,7 +121,7 @@ the JSON layout provided to a given `parquetwriter::Writer` instance.
 For example, the following JSON layout specifies a Parquet file
 containing a one-dimensional variable-lengthed list column
 named `my_1d_list`, a two-dimensional variable-lengthed list column named `my_2d_list`,
-and a three-dimensional list column named `my_3d_list` holding
+and a three-dimensional variable-lengthed list column named `my_3d_list` holding
 C++ `float`, `uint32_t`, and `double` types, respectively:
 ```c++
 auto file_layout = R"(
