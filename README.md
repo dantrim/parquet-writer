@@ -174,11 +174,12 @@ writer.fill("my_3d_list", {my_3d_list_data});
 Storing complex data structures with
 any number of named fields of possibly different data type (i.e. a `C++` `struct`) is possible.
 These correspond to Parquet's [StructType](https://arrow.apache.org/docs/cpp/api/datatype.html#_CPPv4N5arrow10StructTypeE).
-
 Specifying these complex data types is done via the `struct` type.
-For example, storing a structure named `my_struct` having three fields named (typed) `field0` (`int32`),
-`field1` (`float`), `field2` (one-dimensional list of `float`)
-is done as follows,
+
+For example, storing a structure named `my_struct` having three fields named `field0`,
+`field1`, and `field2` of data types `int32`, `float`,
+and `list[float]`, respectively, is done as follows:
+
 ```c++
 auto file_layout = R"(
   "fields": [
@@ -194,14 +195,14 @@ auto file_layout = R"(
 
 As can be seen, `struct` types contain an additional `fields` array, which contains an array of
 the usual `{"name": ..., "type": ...}` objects which describe each of the fields contained
-in the output data structure.
+in the output `struct` data structure.
 
 #### Filling Struct Data Types
 
-Since the `struct` type implies a complex data structure with arbitrarily typed nested fields,
+Since the `struct` type implies a complex data structure with arbitrarily-typed nested fields,
 there is a convenience type that is used for filling this data type: `parquetwriter::struct_element`.
 An instance of `parquetwriter::struct_element` can be treated as an `std::vector`, but one that
-holds any of the supported types (as well as lists of them).
+holds any of the [supported types](#supported-data-types).
 For example, one would fill the three-field structure `my_struct` from above as follows:
 ```c++
 namespace pw = parquetwriter;
