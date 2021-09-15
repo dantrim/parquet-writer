@@ -110,7 +110,7 @@ sections below, specifically
 going over how to declare columns storing `list` and `struct`
 typed data structures.
 
-Complete examples can be found in the [Examples](#examples) sections.
+Complete examples can be found in the [Examples](#examples) section.
 
 ### Lists of Basic Data Types
 
