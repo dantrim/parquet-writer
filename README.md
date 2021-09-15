@@ -32,7 +32,7 @@ The basic usage is illustrated in the following:
 auto file_layout = R"(
   {
     "fields": [
-      {"name": "column0", "type": "float32"},
+      {"name": "column0", "type": "float"},
       {"name": "column1", "type": "int32"}
     ]
   }
