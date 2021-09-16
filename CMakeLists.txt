@@ -9,12 +9,11 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    find_package(PkgConfig REQUIRED)
-else()
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 endif()
 
+find_package(PkgConfig REQUIRED)
 find_package(Arrow REQUIRED)
 find_package(Parquet REQUIRED)
 
