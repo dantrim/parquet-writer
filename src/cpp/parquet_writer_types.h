@@ -46,5 +46,5 @@ typedef std::variant<buffer_value_t, buffer_value_vec_t, buffer_value_vec2d_t,
 typedef std::vector<types::buffer_t> struct_list3d;
 typedef std::vector<types::buffer_t> struct_list2d;
 typedef std::vector<types::buffer_t> struct_list1d;
-typedef types::buffer_value_vec_t pstruct;
+typedef types::buffer_value_vec_t struct_t;
 };  // namespace parquetwriter
