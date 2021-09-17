@@ -7,9 +7,9 @@ on:
   pull_request:
     branches:
     - main
-  # Run daily at 1:02 UTC
+  # Run weekly at 1:02 Monday UTC
   schedule:
-  - cron:  '2 1 * * *'
+  - cron:  '2 1 * * 1'
   workflow_dispatch:
 
 jobs:
