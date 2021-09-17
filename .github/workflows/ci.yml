@@ -34,7 +34,7 @@ jobs:
     - name: Install build dependencies
       run: |
         sudo apt-get update -y
-        apt-get install -y \
+        sudo apt-get install -y \
           ca-certificates \
           lsb-release \
           wget \
@@ -42,9 +42,9 @@ jobs:
           pkg-config \
           cmake
         wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
-        apt install -y ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
-        apt update -y
-        apt install -y \
+        sudo apt-get install -y ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+        sudo apt-get update -y
+        sudo apt-get install -y \
           libarrow-dev \
           libparquet-dev
 
