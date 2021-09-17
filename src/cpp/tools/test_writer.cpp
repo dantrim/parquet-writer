@@ -6,14 +6,15 @@
 //json
 #include <nlohmann/json.hpp>
 
+
 int main(int argc, char* argv[]) {
+
 
     namespace pw = parquetwriter;
     pw::Writer writer;
 
     std::string dataset_name = "dummy_dataset";
     std::string output_dir = "dummy_dataset";
-
 
     //
     // Parquet file layout specified via JSON
@@ -63,8 +64,10 @@ int main(int argc, char* argv[]) {
 
     auto metadata = R"(
         {
-            "dataset": "foobar",
-            "creation_data": "2021/09/14"
+            "metadata": {
+                "dataset": "foobar",
+                "creation_data": "2021/09/14"
+            }
         }
     )"_json;
 

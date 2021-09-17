@@ -1,5 +1,5 @@
 #include "parquet_helpers.h"
-#include <iostream>
+#include "logging.h"
 
 //std/stl
 #include <sstream>
@@ -17,7 +17,6 @@ void ColumnWrapper::create_builder(std::shared_ptr<arrow::DataType> type) {
 	WRITER_CHECK_RESULT(arrow::MakeBuilder(pool, type, &tmp));
 	_builder = tmp.release();
 }
-
 
 
 std::shared_ptr<arrow::DataType> datatype_from_string(const std::string& type_string) {
@@ -45,7 +44,8 @@ std::vector<std::shared_ptr<arrow::Field>> fields_from_json(const json& jlayout,
         if(!current_node.empty()) {
             err << " (at node \"" << current_node << "\")";
         }
-        throw std::runtime_error(err.str());
+        logging::get_logger()->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error(e.what());
     }
 
     size_t n_fields = jfields.size();
@@ -184,10 +184,11 @@ col_builder_map_from_fields(const std::vector<std::shared_ptr<arrow::Field>>& fi
 		node->create_builder(field_type);
 		out[field_name] = makeVariableMap(node);
 
-        //std::cout << "------------- " << field << " MAP -------------" << std::endl;
-        //for(const auto& [key, val] : makeVariableMap(node)) {
-        //    std::cout << " key = " << key << "  val type = " << val->type()->name() << std::endl;
-        //}
+        auto log = logging::get_logger();
+        log->debug("{0} - ============= {1} MAP ===========", __PRETTYFUNCTION__, field_name);
+        for(const auto& [key, val] : makeVariableMap(node)) {
+            log->debug("{0} - key = {1}, val type = {2}", __PRETTYFUNCTION__, key, val->type()->name());
+        }
 	}
 	return out;
 

@@ -2,6 +2,9 @@
 
 //parquetwriter
 #include "parquet_writer_types.h"
+namespace spdlog {
+    class logger;
+}
 
 //std/stl
 #include <string>
@@ -109,6 +112,11 @@ namespace parquetwriter {
             void new_file();
 
             void flush();
+
+            //
+            // logging
+            //
+            std::shared_ptr<spdlog::logger> log;
 
             
 

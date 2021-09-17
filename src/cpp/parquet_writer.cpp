@@ -1,7 +1,7 @@
 #include "parquet_writer.h"
 #include "parquet_helpers.h"
+#include "logging.h"
 
-#include <iostream>
 //std/stl
 #include <sstream>
 #include <filesystem>
@@ -22,7 +22,9 @@ Writer::Writer() :
     _compression(Compression::UNCOMPRESSED),
     _flush_rule(FlushRule::NROWS),
     _data_pagesize(1024*1024*512)
-{}
+{
+    log = logging::get_logger();
+}
 
 const std::string Writer::compression2str(const Compression& compression) {
     std::string out = "";
@@ -50,8 +52,9 @@ void Writer::set_layout(const std::string& field_layout_json_str) {
         this->set_layout(jlayout);
     } catch(std::exception& e) {
         std::stringstream err;
-        err << "ERROR: Failed to parse provided JSON string specifying the field layout, JSON exception caught: " << e.what();
-        throw std::runtime_error(err.str());
+        err << "ERROR: Failed to parse provided JSON string specifying the field layout, JSON exception caught";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error(e.what());
     }
 }
 
@@ -60,6 +63,12 @@ void Writer::set_layout(const nlohmann::json& field_layout) {
     // there must be a top-level "fields" node
 
     _fields = helpers::fields_from_json(field_layout);
+    if(_fields.size() == 0) {
+        std::stringstream err;
+        err << "No fields constructed from provided file layout";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, "No fields constructed from provided file layout");
+        throw std::runtime_error(err.str());
+    }
     for(auto& f : _fields) {
     }
     _schema = arrow::schema(_fields);
@@ -82,8 +91,9 @@ void Writer::set_metadata(const std::string& metadata_str) {
         }
     } catch(std::exception& e) {
         std::stringstream err;
-        err << "ERROR: Failed to parse provided JSON string specifying the file metadata, JSON exception caught: " << e.what();
-        throw std::runtime_error(err.str());
+        err << "ERROR: Failed to parse provided JSON string specifying the file metadata, JSON parsing exception caught";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error(e.what());
     }
 }
 
@@ -93,6 +103,7 @@ void Writer::set_metadata(const nlohmann::json& metadata) {
     if (_file_metadata.count("metadata") == 0) {
         std::stringstream err;
         err << "ERROR: Metadata JSON top-level \"metdata\" node not found";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
         throw std::runtime_error(err.str());
     }
 
@@ -110,6 +121,7 @@ void Writer::set_dataset_name(const std::string& dataset_name) {
     if(dataset_name.empty()) {
         std::stringstream err;
         err << "ERROR: Attempting to give output dataset an invalid name: \"\"";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
         throw std::runtime_error(err.str());
     }
     _dataset_name = dataset_name;
@@ -141,18 +153,21 @@ void Writer::initialize() {
     if(_dataset_name.empty()) {
         std::stringstream err;
         err << "ERROR: Cannot initialize writer with empty dataset name";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
         throw std::logic_error(err.str());
     }
 
     if(!_schema) {
         std::stringstream err;
         err << "ERROR: Cannot initialize writer with empty Parquet schema";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
         throw std::logic_error(err.str());
     }
 
     if(_fields.size() == 0) {
         std::stringstream err;
         err << "ERROR: Cannot initialize writer with empty layout (no columns specified)";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
         throw std::logic_error(err.str());
     }
 
@@ -203,7 +218,10 @@ void Writer::initialize() {
 void Writer::set_flush_rule(const FlushRule& rule, const uint32_t& n) {
 
     if(rule == FlushRule::BUFFERSIZE) {
-        throw std::runtime_error("ERROR: FlushRule::BUFFERSIZE is not supported");
+        std::stringstream err;
+        err << "FlushRule::BUFFERSIZE is not supported";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error(err.str());
     }
     _flush_rule = rule;
     _n_rows_in_group = n;
@@ -216,7 +234,8 @@ void Writer::fill(const std::string& field_path,
 
     if(data_buffer.size() == 0) {
         std::stringstream err;
-        err << "ERROR: Cannot fill node \"" << field_path << "\" with empty data buffer";
+        err << "Cannot fill node \"" << field_path << "\" with empty data buffer";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
         throw std::runtime_error(err.str());
     }
 
@@ -236,14 +255,16 @@ void Writer::fill(const std::string& field_path,
 
     if(_col_builder_map.count(parent_column_name) == 0) {
         std::stringstream err;
-        err << "ERROR: Could not find parent column with name \"" << parent_column_name << "\" in loaded builders";
+        err << "Could not find parent column with name \"" << parent_column_name << "\" in loaded builders";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
         throw std::runtime_error(err.str());
     }
 
     auto col_map = _col_builder_map.at(parent_column_name);
     if(col_map.count(field_path) == 0) {
         std::stringstream err;
-        err << "ERROR: Cannot fill node with name \"" << field_path << "\", it is not in the builder map";
+        err << "Cannot fill node with name \"" << field_path << "\", it is not in the builder map";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
         throw std::runtime_error(err.str());
     }
     builder = _col_builder_map.at(parent_column_name).at(field_path);
@@ -488,7 +509,10 @@ void Writer::fill(const std::string& field_path,
             if(auto v = std::get_if<std::vector<std::vector<std::vector<double>>>>(val)) {
                 helpers::fill<std::vector<std::vector<std::vector<double>>>>(*v, builder);
             } else {
-                throw std::logic_error("ERROR: Invalid type, cannot fill");
+                std::stringstream err;
+                err << "Invalid type, cannot fill";
+                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                throw std::logic_error(err.str());
             }
         } else
         if(auto val = std::get_if<std::vector<types::buffer_value_t>>(&data)) {
@@ -499,7 +523,8 @@ void Writer::fill(const std::string& field_path,
             while(builder_type->id() != arrow::Type::STRUCT) {
                 if(try_count > 3) {
                     std::stringstream err;
-                    err << "ERROR: Expected builder type of \"struct\" for field with name \"" << field_path << "\", got \"" << builder_type->name() << "\"";
+                    err << "Expected builder type of \"struct\" for field with name \"" << field_path << "\", got \"" << builder_type->name() << "\"";
+                    log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
                     throw std::runtime_error(err.str());
                 }
                 if(builder_type->id() == arrow::Type::LIST) {
@@ -737,20 +762,30 @@ void Writer::fill(const std::string& field_path,
                             helpers::fill<std::vector<std::vector<std::vector<double>>>>(*v, field_builder.get());
                             field_ok = true;
                         } else {
-                            throw std::logic_error("ERROR Unhandled fill type for struct field");
+                            std::stringstream err;
+                            err << "Unhandled fill type for struct field";
+                            log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                            throw std::runtime_error(err.str());
                         }
                         break;
                     default:
-                        throw std::logic_error("ERROR Could not fill field \"" + field_name + "\" for struct \"" + field_path);
+                        std::stringstream err;
+                        err << "Could not field field \"" << field_name << "\" for struct \"" << field_path;
+                        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                        throw std::runtime_error(err.str());
                         break;
                 } // switch
                 if(!field_ok) {
-                    throw std::runtime_error("ERROR Failed to fill field \"" + field_name + "\" for struct \"" + field_path);
+                    std::stringstream err;
+                    err << "Failed to fill field \"" << field_name << "\" for struct \"" << field_path;
+                    log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                    throw std::runtime_error(err.str());
                 }
             } // ifield
         } else {
             std::stringstream err;
-            err << "ERROR: Invalid data type given to fill method for field at \"" << field_path << "\"";
+            err << "Invalid data type given to fill method for field at \"" << field_path << "\"";
+            log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
             throw std::runtime_error(err.str());
         }
     }
