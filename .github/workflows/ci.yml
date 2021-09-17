@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+  # Run weekly at 1:02 Monday UTC
+  schedule:
+  - cron:  '2 1 * * 1'
+  workflow_dispatch:
+
+jobs:
+  test:
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: [3.9]
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v2
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install build dependencies on Ubuntu
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y \
+          ca-certificates \
+          lsb-release \
+          wget \
+          build-essential \
+          pkg-config \
+          cmake
+        wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+        sudo apt-get install -y ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+        sudo apt-get update -y
+        sudo apt-get install -y \
+          libarrow-dev \
+          libparquet-dev
+
+        # Install other tools
+        sudo apt-get install -y tree
+
+    - name: Install build dependencies on macOS
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install apache-arrow
+        brew install tree
+
+    - name: Build library and examples on Ubuntu
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        cmake \
+          -DCMAKE_MODULE_PATH=$(find /usr/lib -type d -name arrow) \
+          -S . \
+          -B build
+        cmake build -L
+        cmake --build build --parallel $(($(nproc) - 1))
+        tree build
+
+    - name: Build library and examples on macOS
+      if: matrix.os == 'macos-latest'
+      run: |
+        cmake \
+          -DARROW_PATH=$(brew --prefix apache-arrow) \
+          -S . \
+          -B build
+        cmake build -L
+        cmake --build build --parallel $(($(sysctl -n hw.logicalcpu) - 1))
+        tree build
+
+    - name: Run examples
+      run: |
+        pushd build/bin
+        ls -l
+        echo "Running basic-example"
+        ./basic-example
+        tree
+        echo "Running struct-example"
+        ./struct-example
+        popd
+
+    - name: Install Python runtime dependencies
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        python -m pip install "pyarrow>=4.0.0"
+
+    - name: Run metadata check
+      run: |
+        python examples/python/dump-metadata.py build/bin/example_dataset/example_dataset_0000.parquet
