@@ -72,14 +72,16 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: |
         ls -l /usr/local/Cellar/apache-arrow/*
+        echo "brew info apache-arrow"
         brew info apache-arrow
+        echo "brew --prefix apache-arrow"
         brew --prefix apache-arrow
         cmake \
           -DARROW_PATH=$(brew --prefix apache-arrow) \
           -S . \
           -B build
         cmake build -L
-        cmake --build build --parallel $(($(nproc) - 1))
+        cmake --build build --parallel $(($(sysctl -n hw.logicalcpu) - 1))
         tree build
 
     - name: Run examples
