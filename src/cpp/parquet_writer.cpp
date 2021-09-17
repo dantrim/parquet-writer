@@ -45,17 +45,32 @@ const std::string Writer::flushrule2str(const FlushRule& flush_rule) {
     return out;
 }
 
-void Writer::set_layout(const std::string& field_layout_json_str) {
-
+void Writer::set_layout(std::ifstream& infile) {
+    nlohmann::json jlayout;
+    infile.seekg(0);
     try {
-        auto jlayout = nlohmann::json::parse(field_layout_json_str);
-        this->set_layout(jlayout);
+        jlayout = nlohmann::json::parse(infile);
     } catch(std::exception& e) {
         std::stringstream err;
-        err << "ERROR: Failed to parse provided JSON string specifying the field layout, JSON exception caught";
+        err << "Failed to parse JSON from provided input filestream";
         log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
         throw std::runtime_error(e.what());
     }
+    this->set_layout(jlayout);
+}
+
+void Writer::set_layout(const std::string& field_layout_json_str) {
+
+    nlohmann::json jlayout;
+    try {
+        jlayout = nlohmann::json::parse(field_layout_json_str);
+    } catch(std::exception& e) {
+        std::stringstream err;
+        err << "Failed to parse JSON from provided std::string";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error(e.what());
+    }
+    this->set_layout(jlayout);
 }
 
 void Writer::set_layout(const nlohmann::json& field_layout) {
@@ -81,19 +96,37 @@ void Writer::set_layout(const nlohmann::json& field_layout) {
 
 }
 
+void Writer::set_metadata(std::ifstream& infile) {
+
+    infile.seekg(0);
+    try {
+        _file_metadata = nlohmann::json::parse(infile);
+    } catch(std::exception& e) {
+        std::stringstream err;
+        err << "Failed to parse JSON from provided filestream";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error(e.what());
+    }
+
+    if(_schema) {
+        this->set_metadata(_file_metadata);
+    }
+}
+
 void Writer::set_metadata(const std::string& metadata_str) {
 
     if(metadata_str.empty()) return;
     try {
         _file_metadata = nlohmann::json::parse(metadata_str);
-        if(_schema) {
-            this->set_metadata(_file_metadata);
-        }
     } catch(std::exception& e) {
         std::stringstream err;
-        err << "ERROR: Failed to parse provided JSON string specifying the file metadata, JSON parsing exception caught";
+        err << "Failed to parse JSON from provided std::string";
         log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
         throw std::runtime_error(e.what());
+    }
+
+    if(_schema) {
+        this->set_metadata(_file_metadata);
     }
 }
 
@@ -102,7 +135,7 @@ void Writer::set_metadata(const nlohmann::json& metadata) {
     _file_metadata = metadata;
     if (_file_metadata.count("metadata") == 0) {
         std::stringstream err;
-        err << "ERROR: Metadata JSON top-level \"metdata\" node not found";
+        err << "Metadata JSON top-level \"metdata\" node not found";
         log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
         throw std::runtime_error(err.str());
     }

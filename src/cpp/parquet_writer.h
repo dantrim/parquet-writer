@@ -10,6 +10,7 @@ namespace spdlog {
 #include <string>
 #include <vector>
 #include <map>
+#include <fstream>
 
 //json
 #include "nlohmann/json.hpp"
@@ -45,10 +46,14 @@ namespace parquetwriter {
             void set_dataset_name(const std::string& dataset_name);
             void set_output_directory(const std::string& output_directory);
 
+            void set_layout(std::ifstream& infile);
             void set_layout(const std::string& field_layout_str);
             void set_layout(const nlohmann::json& field_layout);
+
+            void set_metadata(std::ifstream& infile);
             void set_metadata(const std::string& metdata_str);
             void set_metadata(const nlohmann::json& metadata);
+
             void set_compression(const Compression& compression) { _compression = compression; }
 
             void initialize();
