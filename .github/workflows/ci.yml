@@ -18,8 +18,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # os: [ubuntu-latest, macos-latest]
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
         python-version: [3.9]
 
     steps:
@@ -52,11 +51,29 @@ jobs:
         # Install other tools
         sudo apt-get install -y tree
 
-    - name: Build library and examples
+    - name: Install build dependencies on ${{ matrix.os }}
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install apache-arrow
+        brew install tree
+
+    - name: Build library and examples on ${{ matrix.os }}
       if: matrix.os == 'ubuntu-latest'
       run: |
         cmake \
           -DCMAKE_MODULE_PATH=$(find /usr/lib -type d -name arrow) \
+          -S . \
+          -B build
+        cmake build -L
+        cmake --build build --parallel $(($(nproc) - 1))
+        tree build
+
+    - name: Build library and examples on ${{ matrix.os }}
+      if: matrix.os == 'macos-latest'
+      run: |
+        find /usr/local/ -type d -name apache-arrow
+        cmake \
+          -DARROW_PATH="$(find /usr/local/ -type d -name apache-arrow)/5.0.0" \
           -S . \
           -B build
         cmake build -L
