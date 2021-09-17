@@ -123,24 +123,24 @@ int main(int argc, char* argv[]) {
 
     // the "basic_struct" column holds a single struct element in each row (it
     // is flat)
-    pw::struct_element basic_struct_data{float_field_data, int_field_data,
+    pw::pstruct basic_struct_data{float_field_data, int_field_data,
                                          list_field_data};
 
     // the "struct_list1d" column holds a list of struct elements in each row
     // (here the list length is arbitrarily set to 7)
     pw::struct_list1d struct_list_data;
     for (size_t i = 0; i < 7; i++) {
-        pw::struct_element struct_data{float_field_data, int_field_data,
+        pw::pstruct struct_data{float_field_data, int_field_data,
                                        list_field_data};
         struct_list_data.push_back(struct_data);
     }  // i
 
-    pw::struct_element float_field{float_field_data};
+    pw::pstruct float_field{float_field_data};
     pw::struct_list2d struct_list2d_data;
     for (size_t i = 0; i < 5; i++) {
-        std::vector<pw::struct_element> inner_data;
+        std::vector<pw::pstruct> inner_data;
         for (size_t j = 0; j < 2; j++) {
-            pw::struct_element data{float_field_data, int_field_data,
+            pw::pstruct data{float_field_data, int_field_data,
                                     list_field_data};
             inner_data.push_back(data);
         }

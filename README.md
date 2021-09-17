@@ -200,8 +200,8 @@ in the output `struct` data structure.
 #### Filling Struct Data Types
 
 Since the `struct` type implies a complex data structure with arbitrarily-typed nested fields,
-there is a convenience type that is used for filling this data type: `parquetwriter::struct_element`.
-An instance of `parquetwriter::struct_element` can be treated as an `std::vector`, but one that
+there is a convenience type that is used for filling this data type: `parquetwriter::pstruct`.
+An instance of `parquetwriter::pstruct` can be treated as an `std::vector`, but one that
 holds any of the [supported types](#supported-data-types).
 For example, one would fill the three-field structure `my_struct` from above as follows:
 ```c++
@@ -209,11 +209,11 @@ namespace pw = parquetwriter;
 int32_t field0_data = 42;
 float field1_data = 10.5;
 std::vector<float> field2_data{1.2, 2.3, 3.4};
-parquetwriter::struct_element my_struct_data{field0_data, field1_data, field2_data};
+parquetwriter::pstruct my_struct_data{field0_data, field1_data, field2_data};
 /*
  // could also do:
  namespace pw = parquetwriter;
- pw::struct_element my_struct_data;
+ pw::pstruct my_struct_data;
  my_struct_data.push_back(field0_data);
  my_struct_data.push_back(field1_data);
  my_struct_data.push_back(field2_data);
@@ -223,15 +223,15 @@ writer.fill("my_struct", {my_struct_data});
 
 #### Struct DataType Fill Ordering
 
-The ordering of the elements in an instance of `parquetwriter::struct_element` must
+The ordering of the elements in an instance of `parquetwriter::pstruct` must
 absolutely follow the order in which they are specified in the JSON specification
 of the corresponding `struct` type. That is, doing
 ```c++
-pw::struct_element my_struct_bad_data{field2_data, field0_data, field1_data};
+pw::pstruct my_struct_bad_data{field2_data, field0_data, field1_data};
 ```
 instead of what is shown in the previous code snippet would lead to an error since
 the file layout for the data structure `my_struct` expects data types ordered
-as `int32, float, list[float]` but `my_struct_bad_data` fills the `parquetwriter::struct_element`
+as `int32, float, list[float]` but `my_struct_bad_data` fills the `parquetwriter::pstruct`
 with data ordered as `list[float], int32, float`.
 
 ### Lists of Struct DataType
@@ -254,7 +254,7 @@ float field2_data = 126.0;
 // one-dimensional case: list[struct{float, float, float}]
 pw::struct_list1d my_1d_structlist_data;
 for(...) {
-  pw::struct_element struct_data{field0_data, field1_data, field2_data};
+  pw::pstruct struct_data{field0_data, field1_data, field2_data};
   my_1d_structlist_data.push_back(struct_data);
 }
 writer.fill("my_1d_structlist", {my_1d_structlist_data});
@@ -262,9 +262,9 @@ writer.fill("my_1d_structlist", {my_1d_structlist_data});
 // two-dimensional case: list[list[struct{float, float, float}]]
 pw::struct_list2d my_2d_structlist_data;
 for(...) {
-  std::vector<pw::struct_element> inner_list_data;
+  std::vector<pw::pstruct> inner_list_data;
   for(...) {
-    pw::struct_element struct_data{field0_data, field1_data, field2_data};
+    pw::pstruct struct_data{field0_data, field1_data, field2_data};
     inner_list_data.push_back(struct_data);
   }
   my_2d_structlist_data.push_back(inner_list_data);
@@ -274,11 +274,11 @@ writer.fill("my_2d_structlist", {my_2d_structlist_data});
 // three-dimensional case: list[list[list[struct{float, float, float}]]]
 pw::struct_list3d my_3d_structlist_data;
 for(...) {
-  std::vector<std::vector<pw::struct_element>> inner_list_data;
+  std::vector<std::vector<pw::pstruct>> inner_list_data;
   for(...) {
-    std::vector<pw::struct_element> inner_inner_list_data;
+    std::vector<pw::pstruct> inner_inner_list_data;
     for(...) {
-      pw::struct_element struct_data{field1_data, field2_data, field3_data};
+      pw::pstruct struct_data{field1_data, field2_data, field3_data};
       inner_inner_list_data.push_back(struct_data);
     }
     inner_list_data.push_back(inner_inner_list_data);
@@ -321,21 +321,21 @@ Filling the above `struct` column that has an internal `struct` field would be d
 ```C++
 // data for the non-struct fields of the struct "outer_struct" 
 int32_t field0_data = 42;
-parquetwriter::struct_element outer_struct_data{field0_data};
+parquetwriter::pstruct outer_struct_data{field0_data};
 
 // data for the non-struct fields of the internal struct "inner_struct"
 float inner_field0_data = 42.5;
 int32_t inner_field1_data = 42;
-parquetwriter::struct_element inner_struct_data{inner_field0_data, inner_field1_data};
+parquetwriter::pstruct inner_struct_data{inner_field0_data, inner_field1_data};
 
 // write the data to the Parquet file
 writer.fill("outer_struct", {outer_struct_data});
 writer.fill("outer_struct.inner_struct", {inner_struct_data});
 ```
 
-As can be seen, for each level of `struct` nesting one provides a `parquetwriter::struct_element` containing the data
+As can be seen, for each level of `struct` nesting one provides a `parquetwriter::pstruct` containing the data
 for all non-`struct` fields. Internal `struct` fields are then provided their
-`parquetwriter::struct_element` using the dot (`.`) notation in the call to `parquetwriter::Writer::fill`:
+`parquetwriter::pstruct` using the dot (`.`) notation in the call to `parquetwriter::Writer::fill`:
 `<outer_struct_level>.<inner_struct_level>`.
 
 Note that the same number of calls to `parquetwriter::Writer::fill` must be made for each of the
