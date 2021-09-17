@@ -30,7 +30,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install build dependencies on ${{ matrix.os }}
+    - name: Install build dependencies on Ubuntu
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update -y
@@ -51,13 +51,13 @@ jobs:
         # Install other tools
         sudo apt-get install -y tree
 
-    - name: Install build dependencies on ${{ matrix.os }}
+    - name: Install build dependencies on macOS
       if: matrix.os == 'macos-latest'
       run: |
         brew install apache-arrow
         brew install tree
 
-    - name: Build library and examples on ${{ matrix.os }}
+    - name: Build library and examples on Ubuntu
       if: matrix.os == 'ubuntu-latest'
       run: |
         cmake \
@@ -68,7 +68,7 @@ jobs:
         cmake --build build --parallel $(($(nproc) - 1))
         tree build
 
-    - name: Build library and examples on ${{ matrix.os }}
+    - name: Build library and examples on macOS
       if: matrix.os == 'macos-latest'
       run: |
         ls -l /usr/local/Cellar/apache-arrow/*
