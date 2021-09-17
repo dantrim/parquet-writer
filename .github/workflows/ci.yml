@@ -67,7 +67,19 @@ jobs:
       run: |
         pushd build/bin
         ls -l
+        echo "Running basic-example"
         ./basic-example
-        ls -lhtra
+        tree
+        echo "Running struct-example"
         ./struct-example
-        ls -lhtra
+        tree
+        popd
+
+    - name: Install Python runtime dependencies
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        python -m pip install "pyarrow>=4.0.0"
+
+    - name: Run metadata check
+      run: |
+        python examples/python/dump-metadata.py example_dataset/example_dataset_0000.parquet
