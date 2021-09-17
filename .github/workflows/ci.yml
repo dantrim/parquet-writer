@@ -73,7 +73,7 @@ jobs:
       run: |
         ls -l /usr/local/Cellar/apache-arrow/*
         cmake \
-          -DARROW_PATH=/usr/local/Cellar/apache-arrow/5.0.0 \
+          -DARROW_PATH=/usr/local/Cellar/apache-arrow \
           -S . \
           -B build
         cmake build -L
