@@ -16,6 +16,9 @@ jobs:
         runs-on: ubuntu-latest
         container: kratsg/clang-format
         steps:
+            - name: Checkout repo
+              uses: actions/checkout@v2
+
             - name: Run clang-format checker
               run: |
                 run-clang-format -r ./src/ ./examples/ --extensions c,h,cpp,hpp,cxx,hxx
