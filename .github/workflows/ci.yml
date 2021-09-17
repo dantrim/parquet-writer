@@ -33,7 +33,6 @@ jobs:
 
     - name: Install build dependencies
       run: |
-        python -m pytest -r sx --ignore tests/benchmarks/ --ignore tests/contrib --ignore tests/test_notebooks.py
         apt-get update -y
         apt-get install -y \
           ca-certificates \
@@ -48,3 +47,12 @@ jobs:
         apt install -y \
           libarrow-dev \
           libparquet-dev
+
+    - name: Build library
+      run: |
+        cmake \
+          -DCMAKE_MODULE_PATH=$(find /usr/lib -type d -name arrow) \
+          -S . \
+          -B build
+        cmake build -L
+        cmake --build build --parallel $(($(nproc) - 1))
