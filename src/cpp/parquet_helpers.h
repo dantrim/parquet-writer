@@ -111,7 +111,7 @@ namespace helpers {
     }; // class Node
 
     std::shared_ptr<arrow::DataType> datatype_from_string(const std::string& type_string);
-    std::vector<std::shared_ptr<arrow::Field>> fields_from_json(const json& jlayout);
+    std::vector<std::shared_ptr<arrow::Field>> fields_from_json(const json& jlayout, const std::string& current_node = "");
 
     std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>> 
         col_builder_map_from_fields(const std::vector<std::shared_ptr<arrow::Field>>& fields);

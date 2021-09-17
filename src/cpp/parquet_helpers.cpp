@@ -33,10 +33,21 @@ std::shared_ptr<arrow::DataType> datatype_from_string(const std::string& type_st
 
 }
 
-std::vector<std::shared_ptr<arrow::Field>> fields_from_json(const json& jlayout) {
+std::vector<std::shared_ptr<arrow::Field>> fields_from_json(const json& jlayout, const std::string& current_node) {
 
     std::vector<std::shared_ptr<arrow::Field>> fields;
-    auto jfields = jlayout.at("fields");
+    nlohmann::json jfields;
+    try {
+        jfields = jlayout.at("fields");
+    } catch(std::exception& e) {
+        std::stringstream err;
+        err << "ERROR: Missing required \"fields\" node in JSON layout";
+        if(!current_node.empty()) {
+            err << " (at node \"" << current_node << "\")";
+        }
+        throw std::runtime_error(err.str());
+    }
+
     size_t n_fields = jfields.size();
     for(size_t ifield = 0; ifield < n_fields; ifield++) {
         auto jfield = jfields.at(ifield);
@@ -67,7 +78,7 @@ std::vector<std::shared_ptr<arrow::Field>> fields_from_json(const json& jlayout)
                             throw std::runtime_error(err.str());
                         } else
                         if(value_type3 == "struct") {
-                            auto struct_fields = fields_from_json(jcontains3);
+                            auto struct_fields = fields_from_json(jcontains3, field_name);
                             auto end_list_type = arrow::struct_(struct_fields);
                             fields.push_back(arrow::field(field_name, arrow::list(arrow::list(arrow::list(end_list_type)))));
                         } else {
@@ -75,14 +86,14 @@ std::vector<std::shared_ptr<arrow::Field>> fields_from_json(const json& jlayout)
                                     arrow::field(field_name, arrow::list(arrow::list(arrow::list(datatype_from_string(value_type3))))));
                         }
                     } else if(value_type2 == "struct") {
-                        auto struct_fields = fields_from_json(jcontains2);
+                        auto struct_fields = fields_from_json(jcontains2, field_name);
                         auto end_list_type = arrow::struct_(struct_fields);
                         fields.push_back(arrow::field(field_name, arrow::list(arrow::list(end_list_type))));
                     } else {
                         fields.push_back(arrow::field(field_name, arrow::list(arrow::list(datatype_from_string(value_type2)))));
                     }
               } else if(value_type == "struct") {
-                  auto struct_fields = fields_from_json(jcontains);
+                  auto struct_fields = fields_from_json(jcontains, field_name);
                   auto end_list_type = arrow::struct_(struct_fields);
                   fields.push_back(arrow::field(field_name, arrow::list(end_list_type)));
               } else {
@@ -90,7 +101,7 @@ std::vector<std::shared_ptr<arrow::Field>> fields_from_json(const json& jlayout)
               }
            } // list
            else if(field_type == "struct") {
-               auto struct_fields = fields_from_json(jfield);
+               auto struct_fields = fields_from_json(jfield, field_name);
                fields.push_back(arrow::field(field_name, arrow::struct_(struct_fields)));
            } else {
                fields.push_back(arrow::field(field_name, datatype_from_string(field_type)));

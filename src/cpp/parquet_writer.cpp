@@ -57,6 +57,8 @@ void Writer::set_layout(const std::string& field_layout_json_str) {
 
 void Writer::set_layout(const nlohmann::json& field_layout) {
 
+    // there must be a top-level "fields" node
+
     _fields = helpers::fields_from_json(field_layout);
     for(auto& f : _fields) {
     }
