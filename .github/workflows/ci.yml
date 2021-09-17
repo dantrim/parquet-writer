@@ -49,6 +49,9 @@ jobs:
           libarrow-dev \
           libparquet-dev
 
+        # Install other tools
+        sudo apt-get install -y tree
+
     - name: Build library
       run: |
         cmake \
@@ -57,3 +60,4 @@ jobs:
           -B build
         cmake build -L
         cmake --build build --parallel $(($(nproc) - 1))
+        tree build
