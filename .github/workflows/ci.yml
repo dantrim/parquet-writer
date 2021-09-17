@@ -71,11 +71,6 @@ jobs:
     - name: Build library and examples on macOS
       if: matrix.os == 'macos-latest'
       run: |
-        ls -l /usr/local/Cellar/apache-arrow/*
-        echo "brew info apache-arrow"
-        brew info apache-arrow
-        echo "brew --prefix apache-arrow"
-        brew --prefix apache-arrow
         cmake \
           -DARROW_PATH=$(brew --prefix apache-arrow) \
           -S . \
