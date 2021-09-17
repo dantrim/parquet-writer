@@ -52,7 +52,8 @@ jobs:
         # Install other tools
         sudo apt-get install -y tree
 
-    - name: Build library
+    - name: Build library and examples
+      if: matrix.os == 'ubuntu-latest'
       run: |
         cmake \
           -DCMAKE_MODULE_PATH=$(find /usr/lib -type d -name arrow) \
@@ -61,3 +62,12 @@ jobs:
         cmake build -L
         cmake --build build --parallel $(($(nproc) - 1))
         tree build
+
+    - name: Run examples
+      run: |
+        pushd build/bin
+        ls -l
+        ./basic-example
+        ls -lhtra
+        ./struct-example
+        ls -lhtra
