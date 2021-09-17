@@ -72,7 +72,6 @@ jobs:
         tree
         echo "Running struct-example"
         ./struct-example
-        tree
         popd
 
     - name: Install Python runtime dependencies
@@ -82,4 +81,4 @@ jobs:
 
     - name: Run metadata check
       run: |
-        python examples/python/dump-metadata.py example_dataset/example_dataset_0000.parquet
+        python examples/python/dump-metadata.py build/bin/example_dataset/example_dataset_0000.parquet
