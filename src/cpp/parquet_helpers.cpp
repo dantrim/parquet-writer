@@ -194,6 +194,43 @@ col_builder_map_from_fields(const std::vector<std::shared_ptr<arrow::Field>>& fi
 
 }
 
+std::pair<unsigned, unsigned> field_nums_from_struct(const arrow::StructBuilder* builder, const std::string& column_name) {
+
+    // cache
+    static std::map<std::string, std::pair<unsigned, unsigned>> count_map;
+    if(count_map.count(column_name) > 0) {
+        return count_map.at(column_name);
+    }
+
+    unsigned total_num = builder->num_children();
+    unsigned total_non_struct = 0;
+
+    // loop over the child builders and find all those that are not of struct type
+    // (either directly a struct or a list that terminally contains a struct list)
+    for(size_t i = 0; i < total_num; i++) {
+        auto child = builder->child_builder(i).get();
+        size_t try_count = 0;
+
+        // unpack the list to see if it is a struct list
+        if(child->type()->id() == arrow::Type::LIST) {
+            auto list_builder = dynamic_cast<arrow::ListBuilder*>(child);
+            auto value_builder = list_builder->value_builder();
+            while(value_builder->type()->id() == arrow::Type::LIST) {
+                if(try_count>=3) break;
+                list_builder = dynamic_cast<arrow::ListBuilder*>(value_builder);
+                value_builder = list_builder->value_builder();
+                try_count++;
+            }
+            child = value_builder;
+        }
+        if(child->type()->id() == arrow::Type::STRUCT) continue;
+        total_non_struct++;
+    }
+    auto out = std::make_pair(total_num, total_non_struct);
+    count_map[column_name] = out;
+    return out;
+}
+
 
 }; // namespace helpers
 }; // namespace parquetwriter

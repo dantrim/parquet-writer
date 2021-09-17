@@ -121,6 +121,8 @@ namespace helpers {
             std::string prefix,
             std::map<std::string, arrow::ArrayBuilder*>& out_map);
 
+    std::pair<unsigned, unsigned> field_nums_from_struct(const arrow::StructBuilder* builder, const std::string& column_name);
+
     template<typename>
     struct is_std_vector : std::false_type {};
 

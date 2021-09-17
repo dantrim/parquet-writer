@@ -390,10 +390,20 @@ void Writer::fill(const std::string& field_path,
             } // 1D list
         } else
         if(is_struct) {
+
             auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
             auto struct_type = struct_builder->type();
             PARQUET_THROW_NOT_OK(struct_builder->Append());
-            for(size_t ifield = 0; ifield < struct_builder->num_children(); ifield++) {
+
+            auto [num_total_fields, num_fields_nonstruct] = helpers::field_nums_from_struct(struct_builder, field_path);
+            if(data_buffer.size() != num_fields_nonstruct) {
+                std::stringstream err;
+                err << " [0] Invalid number of data elements provided for struct column \"" << field_path << "\": expect " << num_fields_nonstruct << ", got " << data_buffer.size();
+                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                throw std::runtime_error(err.str());
+            }
+
+            for(size_t ifield = 0; ifield < num_total_fields; ifield++) {
                 auto field_builder = struct_builder->child_builder(ifield);
                 auto field_type = field_builder->type();
                 auto field_name = struct_type->field(ifield)->ToString();
@@ -576,7 +586,15 @@ void Writer::fill(const std::string& field_path,
             auto struct_type = struct_builder->type();
             PARQUET_THROW_NOT_OK(struct_builder->Append());
 
-            for(size_t ifield = 0; ifield < struct_builder->num_children(); ifield++) {
+            auto [num_total_fields, num_fields_nonstruct] = helpers::field_nums_from_struct(struct_builder, field_path);
+            if(field_data_vec.size() != num_fields_nonstruct) {
+                std::stringstream err;
+                err << " [1] Invalid number of data elements provided for struct column \"" << field_path << "\": expect " << num_fields_nonstruct << ", got " << field_data_vec.size();
+                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                throw std::runtime_error(err.str());
+            }
+
+            for(size_t ifield = 0; ifield < num_total_fields; ifield++) {
                 auto field_builder = struct_builder->child_builder(ifield);
                 auto field_type = field_builder->type();
                 auto field_name = struct_type->field(ifield)->ToString();
