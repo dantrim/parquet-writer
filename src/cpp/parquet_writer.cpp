@@ -430,6 +430,12 @@ void Writer::fill(const std::string& field_path,
                 auto field_type = field_builder->type();
                 auto field_name = struct_type->field(ifield)->ToString();
 
+                if (ifield >= data_buffer.size()) break;
+                if (field_type->id() == arrow::Type::STRUCT) {
+                    ifield--;
+                    continue;
+                }
+
                 types::buffer_t field_data = data_buffer.at(ifield);
                 if (auto val =
                         std::get_if<types::buffer_value_t>(&field_data)) {
