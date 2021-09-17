@@ -1,0 +1,21 @@
+name: check-format
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+  # Run weekly at 1:02 Monday UTC
+  schedule:
+  - cron:  '2 1 * * 1'
+
+jobs:
+    run-clang-format:
+        runs-on: ubuntu-latest
+        container: kratsg/clang-format
+        steps:
+            - name: Run clang-format checker
+              run: |
+                run-clang-format -r ./src/ ./examples/ --extensions c,h,cpp,hpp,cxx,hxx
