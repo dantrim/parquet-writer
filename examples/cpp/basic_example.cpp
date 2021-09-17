@@ -114,10 +114,12 @@ int main(int argc, char* argv[]) {
     // 
     auto metadata = R"(
     {
-        "dataset_name": "example",
-        "foo": "bar",
-        "n_things": 42,
-        "things": {"foo": "bar"}
+        "metadata": {
+            "dataset_name": "example",
+            "foo": "bar",
+            "n_things": 42,
+            "things": {"foo": "bar"}
+        }
     }
     )"_json;
 

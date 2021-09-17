@@ -86,13 +86,21 @@ void Writer::set_metadata(const std::string& metadata_str) {
 }
 
 void Writer::set_metadata(const nlohmann::json& metadata) {
+
     _file_metadata = metadata;
+    if (_file_metadata.count("metadata") == 0) {
+        std::stringstream err;
+        err << "ERROR: Metadata JSON top-level \"metdata\" node not found";
+        throw std::runtime_error(err.str());
+    }
+
     if(_schema) {
         std::unordered_map<std::string, std::string> metadata_map;
-        metadata_map["metadata"] = metadata.dump();
+        metadata_map["metadata"] = metadata["metadata"].dump();
         arrow::KeyValueMetadata keyval_metadata(metadata_map);
         _schema = _schema->WithMetadata(keyval_metadata.Copy());
     }
+
 }
 
 void Writer::set_dataset_name(const std::string& dataset_name) {
