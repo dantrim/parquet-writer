@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    # branches:
+    # - main
+  pull_request:
+    branches:
+    - main
+  # Run daily at 1:02 UTC
+  schedule:
+  - cron:  '2 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  test:
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
+        python-version: [3.9]
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v2
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install build dependencies
+      run: |
+        python -m pytest -r sx --ignore tests/benchmarks/ --ignore tests/contrib --ignore tests/test_notebooks.py
+        apt-get update -y
+        apt-get install -y \
+          ca-certificates \
+          lsb-release \
+          wget \
+          build-essential \
+          pkg-config \
+          cmake
+        wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+        apt install -y ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+        apt update -y
+        apt install -y \
+          libarrow-dev \
+          libparquet-dev
