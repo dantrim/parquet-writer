@@ -97,8 +97,11 @@ void Writer::set_layout(const nlohmann::json& field_layout) {
                    "No fields constructed from provided file layout");
         throw std::runtime_error(err.str());
     }
+
     for (auto& f : _fields) {
+        _column_fill_map[f->name()] = 0;
     }
+
     _schema = arrow::schema(_fields);
     _arrays.clear();
     if (!_file_metadata.empty()) {
@@ -274,14 +277,6 @@ void Writer::set_flush_rule(const FlushRule& rule, const uint32_t& n) {
 
 void Writer::fill(const std::string& field_path,
                   const std::vector<types::buffer_t>& data_buffer) {
-    if (data_buffer.size() == 0) {
-        std::stringstream err;
-        err << "Cannot fill node \"" << field_path
-            << "\" with empty data buffer";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(err.str());
-    }
-
     size_t pos_parent = field_path.find_first_of("/.");
     // size_t pos_slash = field_path.find('/');
     // size_t pos_dot = field_path.find_first_of("./");
@@ -289,10 +284,12 @@ void Writer::fill(const std::string& field_path,
     // get the parent column builder for this field
     arrow::ArrayBuilder* builder = nullptr;
 
+    bool is_parent_path = false;
     std::string parent_column_name;
     if (pos_parent != std::string::npos) {
         parent_column_name = field_path.substr(0, pos_parent);
     } else {
+        is_parent_path = true;
         parent_column_name = field_path;
     }
 
@@ -316,6 +313,11 @@ void Writer::fill(const std::string& field_path,
 
     // auto builder = _col_builder_map.at(field_path);
     auto builder_type = builder->type();
+
+    // empty scenarios
+    if (data_buffer.size() == 0) {
+        this->append_empty_value(field_path);
+    }
 
     //
     // filling a multivalued column field
@@ -445,7 +447,7 @@ void Writer::fill(const std::string& field_path,
                 }
             }  // ifield
         }      // is_struct
-    } else {
+    } else if (data_buffer.size() == 1) {
         auto data = data_buffer.at(0);
         if (auto val = std::get_if<types::buffer_value_t>(&data)) {
             // data is flat (array-like)
@@ -953,6 +955,10 @@ void Writer::fill(const std::string& field_path,
     }
 
     _field_fill_count++;
+    if (is_parent_path) {
+        _column_fill_map.at(field_path)++;
+    }
+
     if (_field_fill_count % _fields.size() == 0) {
         _fill_count++;
         _row_length++;
@@ -960,6 +966,83 @@ void Writer::fill(const std::string& field_path,
         if (_fill_count % _n_rows_in_group == 0) {
             this->flush();
         }
+    }
+}
+
+void Writer::append_empty_value(const std::string& field_path) {
+    arrow::ArrayBuilder* builder = nullptr;
+    size_t pos_parent = field_path.find_first_of("/.");
+    std::string parent_column_name = field_path;
+    if (pos_parent != std::string::npos) {
+        parent_column_name = field_path.substr(0, pos_parent);
+    }
+
+    // auto col_map = _col_builder_map.at(parent_column_name);
+    builder = _col_builder_map.at(parent_column_name).at(field_path);
+    auto builder_type = builder->type();
+
+    // nested types (list, struct)
+    bool is_struct = builder_type->id() == arrow::Type::STRUCT;
+    bool is_list = builder_type->id() == arrow::Type::LIST;
+    bool is_nested = is_struct || is_list;
+    if (!is_nested) {
+        PARQUET_THROW_NOT_OK(builder->AppendEmptyValue());
+    } else if (is_list) {
+        auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
+        PARQUET_THROW_NOT_OK(list_builder->AppendEmptyValue());
+    } else if (is_struct) {
+        auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
+        PARQUET_THROW_NOT_OK(struct_builder->AppendEmptyValue());
+    }
+}
+
+void Writer::append_null_value(const std::string& field_path) {
+    arrow::ArrayBuilder* builder = nullptr;
+    size_t pos_parent = field_path.find_first_of("/.");
+    std::string parent_column_name = field_path;
+    if (pos_parent != std::string::npos) {
+        parent_column_name = field_path.substr(0, pos_parent);
+    }
+
+    // auto col_map = _col_builder_map.at(parent_column_name);
+    builder = _col_builder_map.at(parent_column_name).at(field_path);
+    auto builder_type = builder->type();
+
+    // nested types (list, struct)
+    bool is_struct = builder_type->id() == arrow::Type::STRUCT;
+    bool is_list = builder_type->id() == arrow::Type::LIST;
+    bool is_nested = is_struct || is_list;
+    if (!is_nested) {
+        PARQUET_THROW_NOT_OK(builder->AppendNull());
+    } else if (is_list) {
+        auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
+        PARQUET_THROW_NOT_OK(list_builder->AppendNull());
+    } else if (is_struct) {
+        auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
+        PARQUET_THROW_NOT_OK(struct_builder->AppendNull());
+    }
+}
+
+void Writer::end_row() {
+    size_t num_columns = _column_fill_map.size();
+    for (const auto& field : _fields) {
+        std::string col_name = field->name();
+        auto col_row_fill_count = _column_fill_map.at(col_name);
+        if (col_row_fill_count == 0) {
+            this->append_null_value(col_name);
+        } else if (col_row_fill_count > 1) {
+            std::stringstream err;
+            err << "Column \"" << col_name << "\" has been filled "
+                << col_row_fill_count
+                << " times for a single row (should be 1), did you forget to "
+                   "call Writer::end_row()?";
+            throw std::runtime_error(err.str());
+        }
+    }
+
+    // reset column fill counts
+    for (const auto& f : _fields) {
+        _column_fill_map.at(f->name()) = 0;
     }
 }
 

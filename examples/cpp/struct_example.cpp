@@ -171,6 +171,9 @@ int main(int argc, char* argv[]) {
         // fields independently of the outer structs' fields
         writer.fill("struct_with_struct_list", {basic_struct_data});
         writer.fill("struct_with_struct_list.struct_list", {struct_list_data});
+
+        // finish handling the current row
+        writer.end_row();
     }  // irow
 
     //

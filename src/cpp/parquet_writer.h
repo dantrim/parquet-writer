@@ -58,6 +58,9 @@ class Writer {
     void fill(const std::string& field_path,
               const std::vector<types::buffer_t>& data_buffer);
 
+    void append_empty_value(const std::string& field_path);
+    void append_null_value(const std::string& field_path);
+    void end_row();
     void finish();
 
     const Compression& compression() { return _compression; }
@@ -87,6 +90,7 @@ class Writer {
 
     uint32_t _fill_count;
     uint32_t _field_fill_count;
+    std::map<std::string, uint64_t> _column_fill_map;
     uint32_t _row_length;
 
     Compression _compression;

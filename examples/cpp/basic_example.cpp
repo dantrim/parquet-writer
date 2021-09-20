@@ -270,6 +270,9 @@ int main(int argc, char* argv[]) {
         writer.fill("col41", {col41_data});
         writer.fill("col42", {col42_data});
         writer.fill("col43", {col43_data});
+
+        // finish handling the current row
+        writer.end_row();
     }  // irow
 
     //
