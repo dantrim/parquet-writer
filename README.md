@@ -54,6 +54,9 @@ int32_t column1_value = 42;
 writer.fill("column0", {column0_value});
 writer.fill("column1", {column1_value});
 
+// signal that writing to the current row is complete
+writer.end_row();
+
 // when finished writing the file, call finish()
 writer.finish();
 ```
