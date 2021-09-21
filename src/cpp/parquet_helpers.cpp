@@ -382,6 +382,9 @@ parquetwriter::FillType fill_type_from_column(arrow::ArrayBuilder* column_builde
         for(size_t ichild = 0; ichild < number_of_fields; ichild++) {
             auto child = struct_builder->child_builder(ichild).get();
             if(child->type()->id() == arrow::Type::STRUCT) {
+                // no sub-structs that have fields of type struct
+            } else if(child->type()->id() == arrow::Type::LIST) {
+                // no sub-struct-lists
             }
         } // ichild
         fill_type = parquetwriter::FillType::STRUCT;
