@@ -90,7 +90,7 @@ void Writer::set_layout(const std::string& field_layout_json_str) {
 void Writer::set_layout(const nlohmann::json& field_layout) {
     // there must be a top-level "fields" node
 
-    _columns = helpers::fields_from_json(field_layout);
+    _columns = helpers::columns_from_json(field_layout);
     if (_columns.size() == 0) {
         std::stringstream err;
         err << "No fields constructed from provided file layout";
@@ -99,6 +99,14 @@ void Writer::set_layout(const nlohmann::json& field_layout) {
         throw std::runtime_error(err.str());
     }
 
+    // debug print-out
+    log->debug("{0} - {1} columns loaded from provided layout:", __PRETTYFUNCTION__, _columns.size());
+    auto n_columns = _columns.size();
+    for(size_t icolumn = 0; icolumn < n_columns; icolumn++) {
+        std::string column_name = _columns.at(icolumn)->name();
+        log->devug("{0} -     [{1}/{2}] {3}", __PRETTYFUNCTION__, icolumn+1, n_columns, column_name);
+    } // icolumn
+
     _schema = arrow::schema(_columns);
     _arrays.clear();
     if (!_file_metadata.empty()) {
@@ -106,6 +114,8 @@ void Writer::set_layout(const nlohmann::json& field_layout) {
     }
     // create the column -> ArrayBuilder mapping
     _col_builder_map = helpers::col_builder_map_from_fields(_columns);
+
+    auto fill_field_builder_map = helpers::fill_field_builder_map_from_columns(_columns);
 
     _expected_fields_to_fill.clear();
 

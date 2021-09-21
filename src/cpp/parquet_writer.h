@@ -70,6 +70,7 @@ class Writer {
     static const std::string flushrule2str(const FlushRule& flush_rule);
 
  private:
+
     // Parquet output wrtier
     std::unique_ptr<parquet::arrow::FileWriter> _file_writer;
     std::shared_ptr<arrow::fs::FileSystem> _fs;

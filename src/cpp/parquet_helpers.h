@@ -1,5 +1,7 @@
 #pragma once
 
+#include "parquet_writer_fill_types.h"
+
 #include <iostream>
 // std/stl
 #include <map>
@@ -127,12 +129,20 @@ class ColumnWrapper {
 
 std::shared_ptr<arrow::DataType> datatype_from_string(
     const std::string& type_string);
-std::vector<std::shared_ptr<arrow::Field>> fields_from_json(
+std::vector<std::shared_ptr<arrow::Field>> columns_from_json(
     const json& jlayout, const std::string& current_node = "");
 
 std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>>
 col_builder_map_from_fields(
     const std::vector<std::shared_ptr<arrow::Field>>& fields);
+
+std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>>
+fill_field_builder_map_from_columns(
+        const std::vector<std::shared_ptr<arrow::Field>>& columns);
+
+parquetwriter::FillType fill_type_from_column_builder(arrow::ArrayBuilder* column_builder);
+
+bool validate_sub_struct_layout(arrow::StructBuilder* struct_builder, const std::string& parent_column_name);
 
 std::map<std::string, arrow::ArrayBuilder*> makeVariableMap(
     std::shared_ptr<ColumnWrapper> node);
