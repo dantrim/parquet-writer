@@ -91,6 +91,9 @@ class Writer {
     uint32_t _fill_count;
     uint32_t _field_fill_count;
     std::map<std::string, uint64_t> _column_fill_map;
+    std::map<std::string, uint64_t> _expected_field_fill_map;
+    std::vector<std::string> _expected_fields_to_fill;
+    uint64_t _total_fills_required_per_row;
     uint32_t _row_length;
 
     Compression _compression;
@@ -100,7 +103,7 @@ class Writer {
 
     // layout of the output Parquet File
     std::shared_ptr<arrow::Schema> _schema;
-    std::vector<std::shared_ptr<arrow::Field>> _fields;
+    std::vector<std::shared_ptr<arrow::Field>> _columns;
     std::vector<std::shared_ptr<arrow::Array>> _arrays;
     nlohmann::json _file_metadata;
 
@@ -113,6 +116,8 @@ class Writer {
     //
     void update_output_stream();
     void new_file();
+
+    bool row_complete();
 
     void flush();
 
