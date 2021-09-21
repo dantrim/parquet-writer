@@ -140,7 +140,8 @@ void makeVariableMap(arrow::ArrayBuilder* builder, std::string parentname,
                      std::string prefix,
                      std::map<std::string, arrow::ArrayBuilder*>& out_map) {
     auto type = builder->type();
-    if (builder->num_children() > 0) {
+    //if (builder->num_children() > 0) {
+    if (type->id() == arrow::Type::STRUCT) {
         std::string struct_builder_name = parentname;  // + "/";
         out_map[struct_builder_name] = builder;
         for (size_t ichild = 0; ichild < builder->num_children(); ichild++) {
@@ -168,6 +169,18 @@ void makeVariableMap(arrow::ArrayBuilder* builder, std::string parentname,
                 out_map[list_name] = child_builder;
                 out_map[val_name] =
                     item_builder;  // dynamic_cast<arrow::ArrayBuilder*>(item_builder);
+
+                //if(item_builder->type()->id() == arrow::Type::LIST) {
+                //    auto item2_builder = dynamic_cast<arrow::ListBuilder*>(item_builder)->value_builder();
+                //    std::string val2_name = val_name + "/item";
+                //    out_map[val2_name] = item2_builder;
+
+                //    if(item2_builder->type()->id() == arrow::Type::LIST) {
+                //        auto item3_builder = dynamic_cast<arrow::ListBuilder*>(item_builder)->value_builder();
+                //        std::string val3_name = val_name + "/item";
+                //        out_map[val3_name] = item3_builder;
+                //    }
+                //}
             } else {
                 std::string outname = parentname + "." + field->name();
                 out_map[outname] = child_builder;
@@ -182,7 +195,20 @@ void makeVariableMap(arrow::ArrayBuilder* builder, std::string parentname,
         std::string list_name = outname;  // + "/list";
         out_map[list_name] = list_builder;
         std::string val_name = outname + "/item";
-        out_map[val_name] = list_builder->value_builder();
+        auto item_builder = list_builder->value_builder();
+        out_map[val_name] = item_builder;
+
+        //if(item_builder->type()->id() == arrow::Type::LIST) {
+        //    auto item2_builder = dynamic_cast<arrow::ListBuilder*>(item_builder)->value_builder();
+        //    std::string val2_name = val_name + "/item";
+        //    out_map[val2_name] = item2_builder;
+
+        //    if(item2_builder->type()->id() == arrow::Type::LIST) {
+        //        auto item3_builder = dynamic_cast<arrow::ListBuilder*>(item_builder)->value_builder();
+        //        std::string val3_name = val2_name + "/item";
+        //        out_map[val3_name] = item3_builder;
+        //    }
+        //}
     } else {
         std::string outname = parentname;
         if (prefix != "") {

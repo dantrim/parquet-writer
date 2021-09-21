@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 // std/stl
 #include <map>
 #include <memory>
@@ -26,31 +27,46 @@
         PARQUET_THROW_NOT_OK(vb->AppendValues(val));                    \
     } else
 
+        //auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(LIST_BUILDER); \
+
 // macro for filling 2d lists (vector<vector<...>>)
 #define INNERLIST_APPEND(LIST_BUILDER, TEMPLATE_TYPE, TYPE_CLASS, CPP_CLASS) \
     if constexpr (std::is_same<TEMPLATE_TYPE, CPP_CLASS>::value) {           \
-        auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(                 \
-            LIST_BUILDER->value_builder());                                  \
-        for (auto v : val) {                                                 \
-            PARQUET_THROW_NOT_OK(LIST_BUILDER->Append());                    \
-            PARQUET_THROW_NOT_OK(vb->AppendValues(v));                       \
-        }                                                                    \
+        auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(LIST_BUILDER); \
+        for(size_t i = 0; i < val.size(); i++) { \
+            PARQUET_THROW_NOT_OK(vb->AppendValues(val.at(i))); \
+        } \
     } else
+
+        //for (auto v : val) {                                                 \
+        //    PARQUET_THROW_NOT_OK(LIST_BUILDER->Append());                    \
+        //    PARQUET_THROW_NOT_OK(vb->AppendValues(v));                       \
+        //}                                                                    \
+
+        //auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(                 \
+        //    LIST_BUILDER->value_builder());                                  \
 
 // macro for filling 3d lists (vector<vector<vector<...>>>)
 #define INNERINNERLIST_APPEND(LIST_BUILDER, INNERLIST_BUILDER, TEMPLATE_TYPE, \
                               TYPE_CLASS, CPP_CLASS)                          \
     if constexpr (std::is_same<TEMPLATE_TYPE, CPP_CLASS>::value) {            \
-        auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(                  \
-            INNERLIST_BUILDER->value_builder());                              \
-        for (auto v : val) {                                                  \
-            PARQUET_THROW_NOT_OK(LIST_BUILDER->Append());                     \
-            for (auto v2 : v) {                                               \
-                PARQUET_THROW_NOT_OK(INNERLIST_BUILDER->Append());            \
-                PARQUET_THROW_NOT_OK(vb->AppendValues(v2));                   \
-            }                                                                 \
-        }                                                                     \
+        auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(LIST_BUILDER); \
+        for(size_t i = 0; i < val.size(); i++) { \
+            for(size_t j = 0; j < val.at(i).size(); j++) { \
+                PARQUET_THROW_NOT_OK(vb->AppendValues(val.at(i).at(j))); \
+            } \
+        } \
     } else
+
+        //auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(                  \
+        //    INNERLIST_BUILDER->value_builder());                              \
+        //for (auto v : val) {                                                  \
+        //    PARQUET_THROW_NOT_OK(LIST_BUILDER->Append());                     \
+        //    for (auto v2 : v) {                                               \
+        //        PARQUET_THROW_NOT_OK(INNERLIST_BUILDER->Append());            \
+        //        PARQUET_THROW_NOT_OK(vb->AppendValues(v2));                   \
+        //    }                                                                 \
+        //}                                                                     \
 
 namespace parquetwriter {
 namespace helpers {
@@ -182,8 +198,13 @@ void fill(T val, arrow::ArrayBuilder* builder) {
         auto vb = dynamic_cast<arrow::DoubleBuilder*>(builder);
         PARQUET_THROW_NOT_OK(vb->Append(val));
     } else if constexpr (is_std_vector<T>::value) {
+        std::cout << "HELPERS FILL " << __LINE__ << std::endl;
+        //auto list_builder = builder;
         auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
+        //std::cout << "HELPERS FILL " << __LINE__ << ", list_builder = " << list_builder << ", builder type = " << builder->type()->name() << std::endl;
+        std::cout << "HELPERS FILL " << __LINE__ << " builder type = " << builder->type()->name() << std::endl;
         PARQUET_THROW_NOT_OK(list_builder->Append());
+        std::cout << "HELPERS FILL " << __LINE__ << std::endl;
         typedef typename getType<T>::type InnerType;
         LIST_APPEND(list_builder, InnerType, Boolean, bool)
         LIST_APPEND(list_builder, InnerType, UInt8, uint8_t)
@@ -197,8 +218,9 @@ void fill(T val, arrow::ArrayBuilder* builder) {
         LIST_APPEND(list_builder, InnerType, Float, float)
         LIST_APPEND(list_builder, InnerType, Double, double)
         if constexpr (is_std_vector<InnerType>::value) {
-            auto list2_builder = dynamic_cast<arrow::ListBuilder*>(
-                list_builder->value_builder());
+            auto list2_builder = builder;
+            //auto list2_builder = dynamic_cast<arrow::ListBuilder*>(
+            //    list_builder->value_builder());
             typedef typename getType<InnerType>::type InnerType2;
             INNERLIST_APPEND(list2_builder, InnerType2, Boolean, bool)
             INNERLIST_APPEND(list2_builder, InnerType2, UInt8, uint8_t)
@@ -212,8 +234,9 @@ void fill(T val, arrow::ArrayBuilder* builder) {
             INNERLIST_APPEND(list2_builder, InnerType2, Float, float)
             INNERLIST_APPEND(list2_builder, InnerType2, Double, double)
             if constexpr (is_std_vector<InnerType2>::value) {
-                auto list3_builder = dynamic_cast<arrow::ListBuilder*>(
-                    list2_builder->value_builder());
+                //auto list3_builder = dynamic_cast<arrow::ListBuilder*>(
+                //    list2_builder->value_builder());
+                auto list3_builder = builder;
                 typedef typename getType<InnerType2>::type InnerType3;
                 INNERINNERLIST_APPEND(list2_builder, list3_builder, InnerType3,
                                       Boolean, bool)

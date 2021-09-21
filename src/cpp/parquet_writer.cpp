@@ -6,6 +6,7 @@
 // std/stl
 #include <filesystem>
 #include <sstream>
+#include <algorithm>
 
 // arrow/parquet
 
@@ -15,9 +16,9 @@ Writer::Writer()
     : _output_directory("./"),
       _dataset_name(""),
       _file_count(0),
-      _fill_count(0),
       _row_length(0),
       _field_fill_count(0),
+      _total_fills_required_per_row(0),
       _n_rows_in_group(-1),
       _compression(Compression::UNCOMPRESSED),
       _flush_rule(FlushRule::NROWS),
@@ -89,8 +90,8 @@ void Writer::set_layout(const std::string& field_layout_json_str) {
 void Writer::set_layout(const nlohmann::json& field_layout) {
     // there must be a top-level "fields" node
 
-    _fields = helpers::fields_from_json(field_layout);
-    if (_fields.size() == 0) {
+    _columns = helpers::fields_from_json(field_layout);
+    if (_columns.size() == 0) {
         std::stringstream err;
         err << "No fields constructed from provided file layout";
         log->error("{0} - {1}", __PRETTYFUNCTION__,
@@ -98,17 +99,59 @@ void Writer::set_layout(const nlohmann::json& field_layout) {
         throw std::runtime_error(err.str());
     }
 
-    for (auto& f : _fields) {
-        _column_fill_map[f->name()] = 0;
-    }
-
-    _schema = arrow::schema(_fields);
+    _schema = arrow::schema(_columns);
     _arrays.clear();
     if (!_file_metadata.empty()) {
         this->set_metadata(_file_metadata);
     }
     // create the column -> ArrayBuilder mapping
-    _col_builder_map = helpers::col_builder_map_from_fields(_fields);
+    _col_builder_map = helpers::col_builder_map_from_fields(_columns);
+
+    _expected_fields_to_fill.clear();
+
+    log->error("{0} - COL build map size = {1}", __PRETTYFUNCTION__, _col_builder_map.size());
+    size_t total_n_to_call_fill_on = 0;
+    for(const auto& [col_name, builder_map] : _col_builder_map) {
+
+        log->error("{0} - COLUMN {1} has {2} sub-builders:", __PRETTYFUNCTION__, col_name, builder_map.size());
+        for(const auto& [sub_name, sub_builder] : builder_map) {
+            log->error("{0} -   --> sub_builder = {1}", __PRETTYFUNCTION__, sub_name);
+            if(sub_name.find("/item") != std::string::npos) continue; // don't consider list value_builder
+            if(sub_name == col_name) {
+                log->error("            ====> SUB_NAME++ = {0}", sub_name);
+                total_n_to_call_fill_on++;
+                _expected_fields_to_fill.push_back(sub_name);
+            } else
+            if(sub_builder->type()->id() == arrow::Type::LIST) {
+                auto value_builder = dynamic_cast<arrow::ListBuilder*>(sub_builder)->value_builder();
+
+                size_t try_count = 0;
+                while(value_builder->type()->id() == arrow::Type::LIST) {
+                    if(try_count >= 3) break;
+                    auto list_builder = dynamic_cast<arrow::ListBuilder*>(value_builder);
+                    value_builder = list_builder->value_builder();
+                    try_count++;
+
+                }
+                if(value_builder->type()->id() == arrow::Type::STRUCT) {
+                    total_n_to_call_fill_on++;
+                    _expected_fields_to_fill.push_back(sub_name);
+                    log->error("            ====> SUB_NAME++ = {0}", sub_name);
+                }
+            }
+            else if(sub_builder->type()->id() == arrow::Type::STRUCT) {
+                total_n_to_call_fill_on++;
+                _expected_fields_to_fill.push_back(sub_name);
+                log->error("            ====> SUB_NAME++ = {0}", sub_name);
+            }
+            log->error("{0} -        -> {1}", __PRETTYFUNCTION__, sub_name);
+        }
+    }
+
+    for(const auto& field_to_fill : _expected_fields_to_fill) {
+        _expected_field_fill_map[field_to_fill] = 0;
+    }
+    log->error("{0} - TOTAL REQUIRED CALLS TO FILL PER ROW = {1}", __PRETTYFUNCTION__, total_n_to_call_fill_on);
 }
 
 void Writer::set_metadata(std::ifstream& infile) {
@@ -203,7 +246,7 @@ void Writer::initialize() {
         throw std::logic_error(err.str());
     }
 
-    if (_fields.size() == 0) {
+    if (_columns.size() == 0) {
         std::stringstream err;
         err << "ERROR: Cannot initialize writer with empty layout (no columns "
                "specified)";
@@ -229,7 +272,7 @@ void Writer::initialize() {
     // default RowGroup specification for now (need to make configurable)
     //
     if (_n_rows_in_group < 0) {
-        _n_rows_in_group = 250000 / _fields.size();
+        _n_rows_in_group = 250000 / _expected_fields_to_fill.size();
     }
 
     //
@@ -277,6 +320,8 @@ void Writer::set_flush_rule(const FlushRule& rule, const uint32_t& n) {
 
 void Writer::fill(const std::string& field_path,
                   const std::vector<types::buffer_t>& data_buffer) {
+
+    log->warn("{0} - FILL CALLED FOR PATH: {1}, data_buffer.size() == {2}", __PRETTYFUNCTION__, field_path, data_buffer.size());
     size_t pos_parent = field_path.find_first_of("/.");
     // size_t pos_slash = field_path.find('/');
     // size_t pos_dot = field_path.find_first_of("./");
@@ -311,22 +356,38 @@ void Writer::fill(const std::string& field_path,
     }
     builder = _col_builder_map.at(parent_column_name).at(field_path);
 
-    // auto builder = _col_builder_map.at(field_path);
-    auto builder_type = builder->type();
-
-    // empty scenarios
-    if (data_buffer.size() == 0) {
-        this->append_empty_value(field_path);
+    if(!builder) {
+        std::stringstream err;
+        err << "Builder for field \"" << field_path << "\" is null!";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error(err.str());
     }
 
-    //
-    // filling a multivalued column field
-    //
-    if (data_buffer.size() > 1) {
-        bool is_struct = builder_type->id() == arrow::Type::STRUCT;
-        bool is_list = builder_type->id() == arrow::Type::LIST;
+    // auto builder = _col_builder_map.at(field_path);
+    auto builder_type = builder->type();
+    bool is_struct = builder_type->id() == arrow::Type::STRUCT;
+    bool is_list = builder_type->id() == arrow::Type::LIST;
 
-        if (is_list) {
+    log->error("{0} - field_path = {1} : is_struct = {2}, is_list = {3}, type = {4}", __PRETTYFUNCTION__, field_path, is_struct, is_list, builder->type()->name());
+    for(const auto& [name, builder] : col_map) {
+        log->error("{0} - COL_MAP name = {1}", __PRETTYFUNCTION__, name);
+    }
+
+    if (data_buffer.size() == 0) {
+        // case of filling an empty data buffer
+        log->error("{0} - data_buffer.size() == 0");
+        this->append_empty_value(field_path);
+    }
+    //else if (data_buffer.size() > 1) {
+    else if (is_list) {
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+
+        // filling a list type
+        //
+        // filling a multivalued column field
+        //
+
+            log->error("{0} - data_buffer_size() = {1} and IS LIST LINE = {2}", __PRETTYFUNCTION__, data_buffer.size(), __LINE__);
             // handle the case of a list of structs, which
             // will have a data_buffer looking like:
             // {
@@ -334,12 +395,18 @@ void Writer::fill(const std::string& field_path,
             //   {a, b, {c, d}}
             // }
             auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
             PARQUET_THROW_NOT_OK(list_builder->Append());
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
             auto value_builder = list_builder->value_builder();
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
             auto value_type = value_builder->type();
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
 
             bool is_list2 = value_type->id() == arrow::Type::LIST;
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
             if (is_list2) {
+                log->error("{0} - data_buffer_size() = {1} and IS LIST 2D", __PRETTYFUNCTION__, data_buffer.size());
                 // data_buffer looking like:
                 // {
                 //    {
@@ -350,51 +417,91 @@ void Writer::fill(const std::string& field_path,
 
                 auto list2_builder =
                     dynamic_cast<arrow::ListBuilder*>(value_builder);
+                if(!list2_builder) {
+                    std::stringstream err;
+                    err << "Value builder for inner list of 2D list at path \"" << field_path << "\" is null!";
+                    log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                    throw std::runtime_error(err.str());
+                }
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+                PARQUET_THROW_NOT_OK(list2_builder->Append());
+
                 auto value2_builder = list2_builder->value_builder();
                 auto value2_type = value2_builder->type();
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
 
                 bool is_list3 = value2_type->id() == arrow::Type::LIST;
                 if (is_list3) {
+                    log->error("{0} - data_buffer_size() = {1} and IS LIST 3D", __PRETTYFUNCTION__, data_buffer.size());
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
                     auto list3_builder =
                         dynamic_cast<arrow::ListBuilder*>(value2_builder);
+                    if(!list3_builder) {
+                        std::stringstream err;
+                        err << "Value builder for inner list of 3D list at path \"" << field_path << "\" is null!";
+                        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                        throw std::runtime_error(err.str());
+                    }
+                    std::cout << "FOO list3_builder = " << list3_builder << std::endl;
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+                    PARQUET_THROW_NOT_OK(list3_builder->Append());
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
                     auto value3_builder = list3_builder->value_builder();
                     auto value3_type = value3_builder->type();
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
 
-                    std::string value_node_name = field_path + "/item";
-                    for (size_t i = 0; i < data_buffer.size(); i++) {
-                        PARQUET_THROW_NOT_OK(list2_builder->Append());
-                        auto ivec = std::get<std::vector<
-                            std::vector<std::vector<types::buffer_value_t>>>>(
-                            data_buffer.at(i));
-                        for (size_t j = 0; j < ivec.size(); j++) {
-                            PARQUET_THROW_NOT_OK(list3_builder->Append());
-                            auto jvec = ivec.at(j);
-                            for (size_t k = 0; k < jvec.size(); k++) {
-                                auto element_data = jvec.at(k);
-                                this->fill(value_node_name, {element_data});
-                            }
+                    std::string value_node_name = field_path + "/item/item";
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+        std::cout << "FOO filling inner inner list of 3d list at node " << value_node_name << " (field_path = " << field_path << ")" <<  std::endl;
+                    this->fill(value_node_name, {data_buffer.at(0)});
+                    //for (size_t i = 0; i < data_buffer.size(); i++) {
+        log->error("//{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+                    //    PARQUET_THROW_NOT_OK(list2_builder->Append());
+        log->error("//{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+                    //    auto ivec = std::get<std::vector<
+                    //        std::vector<std::vector<types::buffer_value_t>>>>(
+                    //        data_buffer.at(i));
+        log->error("//{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+                    //    for (size_t j = 0; j < ivec.size(); j++) {
+                    //        PARQUET_THROW_NOT_OK(list3_builder->Append());
+                    //        auto jvec = ivec.at(j);
+                    //        for (size_t k = 0; k < jvec.size(); k++) {
+                    //            auto element_data = jvec.at(k);
+                    //            this->fill(value_node_name, {element_data});
+                    //        }
 
-                        }  // j
-                    }      // i
+                    //    }  // j
+                    //}      // i
 
                 } else {
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
                     std::string value_node_name = field_path + "/item";
-                    for (size_t ielement = 0; ielement < data_buffer.size();
-                         ielement++) {
-                        PARQUET_THROW_NOT_OK(list2_builder->Append());
-                        auto element_data_vec = std::get<
-                            std::vector<std::vector<types::buffer_value_t>>>(
-                            data_buffer.at(ielement));
-                        for (size_t jelement = 0;
-                             jelement < element_data_vec.size(); jelement++) {
-                            auto element_data = element_data_vec.at(jelement);
+                    log->error("{0} FOO {1} : value_node_name = {2}, data_buffer.size() = {3}", __PRETTYFUNCTION__, __LINE__, value_node_name, data_buffer.size());
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+                    //PARQUET_THROW_NOT_OK(list2_builder->Append());
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+                    this->fill(value_node_name, {data_buffer.at(0)});
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+                    //for (size_t ielement = 0; ielement < data_buffer.size();
+                    //     ielement++) {
+                    //    PARQUET_THROW_NOT_OK(list2_builder->Append());
+                    //    this->fill(value_node_name, {data_buffer.at(ielement)});
 
-                            this->fill(value_node_name, {element_data});
-                        }  // jelement
-                    }      // ielement
+
+                    //    //auto element_data_vec = std::get<
+                    //    //    std::vector<std::vector<types::buffer_value_t>>>(
+                    //    //    data_buffer.at(ielement));
+                    //    //for (size_t jelement = 0;
+                    //    //     jelement < element_data_vec.size(); jelement++) {
+                    //    //    auto element_data = element_data_vec.at(jelement);
+
+                    //    //    this->fill(value_node_name, {element_data});
+                    //    //}  // jelement
+                    //}      // ielement
                 }          // 2d list
             } else {
                 // if(value_type->id() != arrow::Type::STRUCT) {
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
                 //    std::stringstream err;
                 //    err << "ERROR: Only handle nested list[struct], but you
                 //    are trying list[" << value_type->name() << "]"; throw
@@ -402,92 +509,155 @@ void Writer::fill(const std::string& field_path,
                 //}
 
                 std::string value_node_name = field_path + "/item";
-                for (size_t ielement = 0; ielement < data_buffer.size();
-                     ielement++) {
-                    auto element_data_vec =
-                        std::get<std::vector<types::buffer_value_t>>(
-                            data_buffer.at(ielement));
-                    this->fill(value_node_name, {element_data_vec});
-                }  // ielement
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+        log->error("{0}      data_buffer.size() = {1}", __PRETTYFUNCTION__, data_buffer.size());
+                //auto element_data_vec = std::get<std::vector<types::buffer_value_t>>(data_buffer.at(0));
+                //for(size_t ielement = 0; ielement < data_buffer.size(); ielement++) {
+                //    auto element_data = std::get<std::vector<types::buffer_value_t>>(data_buffer.at(ielement))
+                //}
+        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+                this->fill(value_node_name, {data_buffer.at(0)});
+//                for (size_t ielement = 0; ielement < data_buffer.size();
+//                     ielement++) {
+//        log->error("{0}      data_buffer.size() = {1}, ielement = {2}", __PRETTYFUNCTION__, data_buffer.size(), ielement);
+//        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+//                    auto element_data_vec =
+//                        std::get<std::vector<types::buffer_value_t>>(
+//                            data_buffer.at(ielement));
+//        log->error("{0} - IS LIST LINE {1}", __PRETTYFUNCTION__, __LINE__);
+//                    this->fill(value_node_name, {element_data_vec});
+//                }  // ielement
             }      // 1D list
-        } else if (is_struct) {
-            auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
-            auto struct_type = struct_builder->type();
-            PARQUET_THROW_NOT_OK(struct_builder->Append());
+    } else if (is_struct) {
+        //} else if (auto val =
+        //               std::get_if<std::vector<types::buffer_value_t>>(&data)) {
 
-            auto [num_total_fields, num_fields_nonstruct] =
-                helpers::field_nums_from_struct(struct_builder, field_path);
-            if (data_buffer.size() != num_fields_nonstruct) {
+            log->error("{0} - {1} FILLING STRUCT", __PRETTYFUNCTION__, __LINE__);
+            
+            if(data_buffer.size() != 1) {
                 std::stringstream err;
-                err << " [0] Invalid number of data elements provided for "
-                       "struct column \""
-                    << field_path << "\": expect " << num_fields_nonstruct
-                    << ", got " << data_buffer.size();
+                err << "Filling struct type field with data buffer size =! 1, but size = " << data_buffer.size() << " (a data buffer of type parquetwriter::struct_t is expected!)";
                 log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
                 throw std::runtime_error(err.str());
             }
 
-            for (size_t ifield = 0; ifield < num_total_fields; ifield++) {
-                auto field_builder = struct_builder->child_builder(ifield);
-                auto field_type = field_builder->type();
-                auto field_name = struct_type->field(ifield)->ToString();
+            struct_t struct_data;
+            try {
+                struct_data = std::get<struct_t>(data_buffer.at(0));
+            } catch(std::exception& e) {
+                std::stringstream err;
+                err << "Unable to parse struct field data for field \"" << field_path << "\" (expect a data buffer of type parquetwriter::struct_t)";
+                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                throw std::runtime_error(e.what());
+            }
 
-                if (ifield >= data_buffer.size()) break;
-                if (field_type->id() == arrow::Type::STRUCT) {
-                    ifield--;
-                    continue;
-                }
+            //types::buffer_value_vec_t field_data_vec = *val;
+            log->error("{0} - data_buffer_size() = {1},  and IS STRUCT, struct_data size = {2}", __PRETTYFUNCTION__, data_buffer.size(), struct_data.size());
+            auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
 
-                types::buffer_t field_data = data_buffer.at(ifield);
-                if (auto val =
-                        std::get_if<types::buffer_value_t>(&field_data)) {
-                    std::stringstream field_node_name;
-                    field_node_name << field_path << "." << field_name;
-                    this->fill(field_node_name.str(), {*val});
-                }
-            }  // ifield
-        }      // is_struct
+            auto struct_type = struct_builder->type();
+            PARQUET_THROW_NOT_OK(struct_builder->Append());
+
+
+            auto [num_total_fields, num_fields_nonstruct] =
+                helpers::field_nums_from_struct(struct_builder, field_path);
+            if(struct_data.size() != num_fields_nonstruct) {
+                std::stringstream err;
+                err << " [0] Invalid number of data elements provided for "
+                       "struct column \""
+                    << field_path << "\": expect " << num_fields_nonstruct
+                    << ", got " << struct_data.size();
+                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                throw std::runtime_error(err.str());
+            }
+
+            this->fill_struct(struct_builder, struct_data, field_path);
+
+            //for (size_t ifield = 0; ifield < num_total_fields; ifield++) {
+            //    auto field_builder = struct_builder->child_builder(ifield);
+            //    auto field_type = field_builder->type();
+            //    auto field_name = struct_type->field(ifield)->name();
+
+            //    if (ifield >= struct_data.size()) break;
+            //    if (field_type->id() == arrow::Type::STRUCT) {
+            //        ifield--;
+            //        continue;
+            //    }
+
+            //    types::buffer_t field_data = struct_data.at(ifield);
+            //    if (auto val =
+            //            std::get_if<types::buffer_value_t>(&field_data)) {
+            //        std::stringstream field_node_name;
+            //        field_node_name << field_path << "." << field_name;
+            //        log->error("{0} - IS_STRUCT calling fill with field_node_name = {1}", __PRETTYFUNCTION__, field_node_name.str());
+            //        this->fill(field_node_name.str(), {*val});
+            //    }
+            //}  // ifield
+    //}      // is_struct
     } else if (data_buffer.size() == 1) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
         auto data = data_buffer.at(0);
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
         if (auto val = std::get_if<types::buffer_value_t>(&data)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
             // data is flat (array-like)
             if (auto v = std::get_if<bool>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<bool>(*v, builder);
             } else if (auto v = std::get_if<uint8_t>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<uint8_t>(*v, builder);
             } else if (auto v = std::get_if<uint16_t>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<uint16_t>(*v, builder);
             } else if (auto v = std::get_if<uint32_t>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<uint32_t>(*v, builder);
             } else if (auto v = std::get_if<uint64_t>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<uint64_t>(*v, builder);
             } else if (auto v = std::get_if<int8_t>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<int8_t>(*v, builder);
             } else if (auto v = std::get_if<int16_t>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<int16_t>(*v, builder);
             } else if (auto v = std::get_if<int32_t>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<int32_t>(*v, builder);
             } else if (auto v = std::get_if<int64_t>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<int64_t>(*v, builder);
             } else if (auto v = std::get_if<float>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<float>(*v, builder);
             } else if (auto v = std::get_if<double>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<double>(*v, builder);
             } else if (auto v = std::get_if<std::vector<bool>>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<std::vector<bool>>(*v, builder);
             } else if (auto v = std::get_if<std::vector<uint8_t>>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<std::vector<uint8_t>>(*v, builder);
             } else if (auto v = std::get_if<std::vector<uint16_t>>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<std::vector<uint16_t>>(*v, builder);
             } else if (auto v = std::get_if<std::vector<uint32_t>>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<std::vector<uint32_t>>(*v, builder);
             } else if (auto v = std::get_if<std::vector<uint64_t>>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<std::vector<uint64_t>>(*v, builder);
             } else if (auto v = std::get_if<std::vector<int8_t>>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<std::vector<int8_t>>(*v, builder);
             } else if (auto v = std::get_if<std::vector<int16_t>>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
                 helpers::fill<std::vector<int16_t>>(*v, builder);
             } else if (auto v = std::get_if<std::vector<int32_t>>(val)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
+        std::cout << "                  FOO builder = " << builder << std::endl;
                 helpers::fill<std::vector<int32_t>>(*v, builder);
             } else if (auto v = std::get_if<std::vector<int64_t>>(val)) {
                 helpers::fill<std::vector<int64_t>>(*v, builder);
@@ -589,6 +759,7 @@ void Writer::fill(const std::string& field_path,
             }
         } else if (auto val =
                        std::get_if<std::vector<types::buffer_value_t>>(&data)) {
+        log->error("{0} - data_buffer_size() == 1, LINE == {1}", __PRETTYFUNCTION__, __LINE__);
             // here we handle the case of a data buffer containing a a
             // vector of potentially differently-typed fields (e.g. a struct)
 
@@ -614,6 +785,7 @@ void Writer::fill(const std::string& field_path,
                 }
                 try_count++;
             }
+            log->error("{0} - data_buffer_size() == 1 {1}", __PRETTYFUNCTION__, __LINE__);
             types::buffer_value_vec_t field_data_vec = *val;
 
             auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
@@ -954,22 +1126,388 @@ void Writer::fill(const std::string& field_path,
         }
     }
 
-    _field_fill_count++;
-    if (is_parent_path) {
-        _column_fill_map.at(field_path)++;
+    if (std::find(_expected_fields_to_fill.begin(), _expected_fields_to_fill.end(), field_path) != _expected_fields_to_fill.end()) {
+        _field_fill_count++;
+        _expected_field_fill_map.at(field_path)++;
     }
 
-    if (_field_fill_count % _fields.size() == 0) {
-        _fill_count++;
+    if(row_complete()) {
+        log->error("{0} - ROW COMPLETE!", __PRETTYFUNCTION__);
         _row_length++;
-
-        if (_fill_count % _n_rows_in_group == 0) {
+        if(_row_length % _n_rows_in_group == 0) {
             this->flush();
         }
     }
+
+    //if (_field_fill_count % _expected_fields_to_fill.size() == 0) {
+
+    //    log->warn("{0} - number of fields per row filled: _field_fill_count = {1}, _expected_fields_to_fill.size() = {2}", __PRETTYFUNCTION__, _field_fill_count, _expected_fields_to_fill.size());
+
+    //    _row_length++;
+
+    //    if (_fill_count % _n_rows_in_group == 0) {
+    //        log->warn("{0} - FLUSHING _fill_count = {1}", _fill_count);
+    //        this->flush();
+    //    }
+    //}
+}
+
+void Writer::fill_struct(arrow::StructBuilder* struct_builder, struct_t struct_data, const std::string& field_path) {
+
+    log->error("{0} - FILL_STRUCT LINE = {1}", __PRETTY_FUNCTION__, __LINE__);
+            auto struct_type = struct_builder->type();
+    log->error("{0} - FILL_STRUCT LINE = {1}", __PRETTY_FUNCTION__, __LINE__);
+            PARQUET_THROW_NOT_OK(struct_builder->Append());
+    log->error("{0} - FILL_STRUCT LINE = {1}", __PRETTY_FUNCTION__, __LINE__);
+
+            auto [num_total_fields, num_fields_nonstruct] =
+                helpers::field_nums_from_struct(struct_builder, field_path);
+            if (struct_data.size() != num_fields_nonstruct) {
+                std::stringstream err;
+                err << " [1] Invalid number of data elements provided for "
+                       "struct column \""
+                    << field_path << "\": expect " << num_fields_nonstruct
+                    << ", got " << struct_data.size();
+                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                throw std::runtime_error(err.str());
+            }
+
+    log->error("{0} - FILL_STRUCT LINE = {1}", __PRETTY_FUNCTION__, __LINE__);
+            for (size_t ifield = 0; ifield < num_total_fields; ifield++) {
+    log->error("{0} - FILL_STRUCT LINE = {1}", __PRETTY_FUNCTION__, __LINE__);
+                auto field_builder = struct_builder->child_builder(ifield);
+                auto field_type = field_builder->type();
+                auto field_name = struct_type->field(ifield)->ToString();
+    log->error("{0} - FILL_STRUCT LINE = {1}", __PRETTY_FUNCTION__, __LINE__);
+
+                // don't consider inner structs, they must be called
+                // manually with a new call to "fill"
+
+                // for structs within structs, you MUST fill from outer to inner
+                // e.g.
+                //      writer.fill("struct", {struct_data});
+                //      writer.fill("struct.inner_struct", {inner_struct_data});
+                if (ifield >= struct_data.size()) break;
+                if (field_type->id() == arrow::Type::STRUCT) {
+                    ifield--;
+                    continue;
+                }
+    log->error("{0} - FILL_STRUCT LINE = {1}", __PRETTY_FUNCTION__, __LINE__);
+
+                bool field_ok = false;
+                types::buffer_value_t field_data = struct_data.at(ifield);
+                switch (field_type->id()) {
+                    case arrow::Type::BOOL:
+                        if (auto v = std::get_if<bool>(&field_data)) {
+                            helpers::fill<bool>(*v, field_builder.get());
+                            field_ok = true;
+                        }
+                        break;
+                    case arrow::Type::UINT8:
+                        if (auto v = std::get_if<uint8_t>(&field_data)) {
+                            helpers::fill<uint8_t>(*v, field_builder.get());
+                            field_ok = true;
+                        }
+                        break;
+                    case arrow::Type::UINT16:
+                        if (auto v = std::get_if<uint16_t>(&field_data)) {
+                            helpers::fill<uint16_t>(*v, field_builder.get());
+                            field_ok = true;
+                        }
+                        break;
+                    case arrow::Type::UINT32:
+                        if (auto v = std::get_if<uint32_t>(&field_data)) {
+                            helpers::fill<uint32_t>(*v, field_builder.get());
+                            field_ok = true;
+                        }
+                        break;
+                    case arrow::Type::UINT64:
+                        if (auto v = std::get_if<uint64_t>(&field_data)) {
+                            helpers::fill<uint64_t>(*v, field_builder.get());
+                            field_ok = true;
+                        }
+                        break;
+                    case arrow::Type::INT8:
+                        if (auto v = std::get_if<int8_t>(&field_data)) {
+                            helpers::fill<int8_t>(*v, field_builder.get());
+                            field_ok = true;
+                        }
+                        break;
+                    case arrow::Type::INT16:
+                        if (auto v = std::get_if<int16_t>(&field_data)) {
+                            helpers::fill<int16_t>(*v, field_builder.get());
+                            field_ok = true;
+                        }
+                        break;
+                    case arrow::Type::INT32:
+                        if (auto v = std::get_if<int32_t>(&field_data)) {
+                            helpers::fill<int32_t>(*v, field_builder.get());
+                            field_ok = true;
+                        }
+                        break;
+                    case arrow::Type::INT64:
+                        if (auto v = std::get_if<int64_t>(&field_data)) {
+                            helpers::fill<int64_t>(*v, field_builder.get());
+                            field_ok = true;
+                        }
+                        break;
+                    case arrow::Type::FLOAT:
+                        if (auto v = std::get_if<float>(&field_data)) {
+                            helpers::fill<float>(*v, field_builder.get());
+                            field_ok = true;
+                        }
+                        break;
+                    case arrow::Type::DOUBLE:
+                        if (auto v = std::get_if<double>(&field_data)) {
+                            helpers::fill<double>(*v, field_builder.get());
+                            field_ok = true;
+                        }
+                        break;
+
+                    case arrow::Type::LIST:
+                        if (auto v =
+                                std::get_if<std::vector<bool>>(&field_data)) {
+                            helpers::fill<std::vector<bool>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<uint8_t>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<uint8_t>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<uint16_t>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<uint16_t>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<uint32_t>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<uint32_t>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<uint64_t>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<uint64_t>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<int8_t>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<int8_t>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<int16_t>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<int16_t>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<int32_t>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<int32_t>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<int64_t>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<int64_t>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<float>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<float>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<double>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<double>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else
+                            // 2D list field
+                            if (auto v =
+                                    std::get_if<std::vector<std::vector<bool>>>(
+                                        &field_data)) {
+                            helpers::fill<std::vector<std::vector<bool>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<
+                                       std::vector<std::vector<uint8_t>>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<std::vector<uint8_t>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<
+                                       std::vector<std::vector<uint16_t>>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<std::vector<uint16_t>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<
+                                       std::vector<std::vector<uint32_t>>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<std::vector<uint32_t>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<
+                                       std::vector<std::vector<uint64_t>>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<std::vector<uint64_t>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<
+                                       std::vector<std::vector<int8_t>>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<std::vector<int8_t>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<
+                                       std::vector<std::vector<int16_t>>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<std::vector<int16_t>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<
+                                       std::vector<std::vector<int32_t>>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<std::vector<int32_t>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<
+                                       std::vector<std::vector<int64_t>>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<std::vector<int64_t>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<
+                                       std::vector<std::vector<float>>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<std::vector<float>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<
+                                       std::vector<std::vector<double>>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<std::vector<double>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<
+                                       std::vector<std::vector<bool>>>>(
+                                       &field_data)) {
+                            helpers::fill<
+                                std::vector<std::vector<std::vector<bool>>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<
+                                       std::vector<std::vector<uint8_t>>>>(
+                                       &field_data)) {
+                            helpers::fill<
+                                std::vector<std::vector<std::vector<uint8_t>>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<
+                                       std::vector<std::vector<uint16_t>>>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<
+                                std::vector<std::vector<uint16_t>>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<
+                                       std::vector<std::vector<uint32_t>>>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<
+                                std::vector<std::vector<uint32_t>>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<
+                                       std::vector<std::vector<uint64_t>>>>(
+                                       &field_data)) {
+                            helpers::fill<std::vector<
+                                std::vector<std::vector<uint64_t>>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<
+                                       std::vector<std::vector<int8_t>>>>(
+                                       &field_data)) {
+                            helpers::fill<
+                                std::vector<std::vector<std::vector<int8_t>>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<
+                                       std::vector<std::vector<int16_t>>>>(
+                                       &field_data)) {
+                            helpers::fill<
+                                std::vector<std::vector<std::vector<int16_t>>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<
+                                       std::vector<std::vector<int32_t>>>>(
+                                       &field_data)) {
+                            helpers::fill<
+                                std::vector<std::vector<std::vector<int32_t>>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<
+                                       std::vector<std::vector<int64_t>>>>(
+                                       &field_data)) {
+                            helpers::fill<
+                                std::vector<std::vector<std::vector<int64_t>>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<
+                                       std::vector<std::vector<float>>>>(
+                                       &field_data)) {
+                            helpers::fill<
+                                std::vector<std::vector<std::vector<float>>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else if (auto v = std::get_if<std::vector<
+                                       std::vector<std::vector<double>>>>(
+                                       &field_data)) {
+                            helpers::fill<
+                                std::vector<std::vector<std::vector<double>>>>(
+                                *v, field_builder.get());
+                            field_ok = true;
+                        } else {
+                            std::stringstream err;
+                            err << "Unhandled fill type for struct field";
+                            log->error("{0} - {1}", __PRETTYFUNCTION__,
+                                       err.str());
+                            throw std::runtime_error(err.str());
+                        }
+                        break;
+                    default:
+                        std::stringstream err;
+                        err << "Could not field field \"" << field_name
+                            << "\" for struct \"" << field_path;
+                        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                        throw std::runtime_error(err.str());
+                        break;
+                }  // switch
+                if (!field_ok) {
+                    std::stringstream err;
+                    err << "Failed to fill field \"" << field_name
+                        << "\" for struct \"" << field_path;
+                    log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                    throw std::runtime_error(err.str());
+                }
+            }  // ifield
+}
+
+bool Writer::row_complete() {
+    // check that each expected fill field has been filled once
+    bool complete = true;
+    std::vector<std::string> remainders;
+    std::vector<uint64_t> remainders_counts;
+    for(const auto& [field_name, field_fill_count] : _expected_field_fill_map) {
+        if(field_fill_count != 1) {
+            complete = false;
+            remainders.push_back(field_name);
+            remainders_counts.push_back(field_fill_count);
+        }
+    }
+    return complete;
 }
 
 void Writer::append_empty_value(const std::string& field_path) {
+    log->error("{0} - APPENDING EMPTY VALUE FOR FIELD {1}", __PRETTYFUNCTION__, field_path);
     arrow::ArrayBuilder* builder = nullptr;
     size_t pos_parent = field_path.find_first_of("/.");
     std::string parent_column_name = field_path;
@@ -987,16 +1525,20 @@ void Writer::append_empty_value(const std::string& field_path) {
     bool is_nested = is_struct || is_list;
     if (!is_nested) {
         PARQUET_THROW_NOT_OK(builder->AppendEmptyValue());
+        log->error("{0} -           => !is_nested AppendEmptyValue", __PRETTYFUNCTION__);
     } else if (is_list) {
         auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
         PARQUET_THROW_NOT_OK(list_builder->AppendEmptyValue());
+        log->error("{0} -           => is_list AppendEmptyValue", __PRETTYFUNCTION__);
     } else if (is_struct) {
         auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
         PARQUET_THROW_NOT_OK(struct_builder->AppendEmptyValue());
+        log->error("{0} -           => is_struct AppendEmptyValue", __PRETTYFUNCTION__);
     }
 }
 
 void Writer::append_null_value(const std::string& field_path) {
+    log->error("{0} - APPENDING NULL VALUE FOR FIELD {1}", __PRETTYFUNCTION__, field_path);
     arrow::ArrayBuilder* builder = nullptr;
     size_t pos_parent = field_path.find_first_of("/.");
     std::string parent_column_name = field_path;
@@ -1013,50 +1555,64 @@ void Writer::append_null_value(const std::string& field_path) {
     bool is_list = builder_type->id() == arrow::Type::LIST;
     bool is_nested = is_struct || is_list;
     if (!is_nested) {
+        log->error("{0} -           => !is_nested AppendNull", __PRETTYFUNCTION__);
         PARQUET_THROW_NOT_OK(builder->AppendNull());
     } else if (is_list) {
         auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
         PARQUET_THROW_NOT_OK(list_builder->AppendNull());
+        log->error("{0} -           => is_list AppendNull", __PRETTYFUNCTION__);
     } else if (is_struct) {
         auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
         PARQUET_THROW_NOT_OK(struct_builder->AppendNull());
+        log->error("{0} -           => is_struct AppendNull", __PRETTYFUNCTION__);
     }
 }
 
 void Writer::end_row() {
-    size_t num_columns = _column_fill_map.size();
-    for (const auto& field : _fields) {
-        std::string col_name = field->name();
-        auto col_row_fill_count = _column_fill_map.at(col_name);
-        if (col_row_fill_count == 0) {
-            this->append_null_value(col_name);
-        } else if (col_row_fill_count > 1) {
+    log->warn("{0} -------------------------------------", __PRETTYFUNCTION__);
+    for (const auto& field : _expected_fields_to_fill) {
+
+        auto field_fill_count = _expected_field_fill_map.at(field);
+
+        log->warn("{0} -   EXPECTED FIELD {1} HAS FILL COUNT = {2}", __PRETTYFUNCTION__, field, field_fill_count);
+        if (field_fill_count == 0) {
+            this->append_null_value(field);
+        } else if (field_fill_count > 1) {
             std::stringstream err;
-            err << "Column \"" << col_name << "\" has been filled "
-                << col_row_fill_count
+            err << "Column field \"" << field << "\" has been filled "
+                << field_fill_count
                 << " times for a single row (should be 1), did you forget to "
-                   "call Writer::end_row()?";
+                   "call Writer::end_row() at some point?";
             throw std::runtime_error(err.str());
         }
     }
 
-    // reset column fill counts
-    for (const auto& f : _fields) {
-        _column_fill_map.at(f->name()) = 0;
+    // reset column field fill counts
+    for (const auto& field_name : _expected_fields_to_fill) {
+        _expected_field_fill_map.at(field_name) = 0;
     }
 }
 
 void Writer::flush() {
+    log->error("{0} - IN FLUSH", __PRETTYFUNCTION__);
+
     _arrays.clear();
     std::shared_ptr<arrow::Array> array;
-    for (auto& field_name : _fields) {
-        PARQUET_THROW_NOT_OK(_col_builder_map.at(field_name->name())
-                                 .at(field_name->name())
+    for (auto& column : _columns) {
+        PARQUET_THROW_NOT_OK(_col_builder_map.at(column->name())
+                                 .at(column->name())
                                  ->Finish(&array));
         _arrays.push_back(array);
     }
 
     auto table = arrow::Table::Make(_schema, _arrays);
+    size_t n_columns = table->num_columns();
+    log->error("{0} - LOOPING OVER TABLE COLUMNS", __PRETTYFUNCTION__);
+    for(size_t icol = 0; icol <  n_columns; icol++) {
+        auto column = table->column(icol);
+        log->error("{0} -    COLUMN \"{1}\": LENGTH = {2}", __PRETTYFUNCTION__, table->field(icol)->name(), column->length());
+
+    }
     PARQUET_THROW_NOT_OK(_file_writer->WriteTable(*table, _row_length));
     _row_length = 0;
 
@@ -1066,6 +1622,7 @@ void Writer::flush() {
 }
 
 void Writer::finish() {
+    log->error("{0} - IN FINISH", __PRETTYFUNCTION__);
     this->flush();
     PARQUET_THROW_NOT_OK(_file_writer->Close());
 }
