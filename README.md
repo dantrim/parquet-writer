@@ -82,9 +82,18 @@ by the `parquet-writer` library are summarized in the table below,
 |                 | 3 dimensional: `list[list[list[struct{<fields>}]` |
 
 Where `struct{<fields>}` demarcates a data type comprised of any number
-of arbitrarily-typed named-fields (think: C++ `struct`). A `struct` data type
-can itself have fields that are of the `struct` data type and/or of
-a `list` data type, as well.
+of arbitrarily-typed named-fields (think: C++ `struct`).
+
+Fields of `struct` type can have fields that are basic value types
+(e.g. the integer, floating point, and logical data types)
+as well as 1-, 2-, and 3-dimensional lists of these basic value types.
+
+The fields of `struct` type can also be of `struct`-type or `list[...[struct]]`-type, so long as these
+sub-`struct`-type fields do not contain fields that are themselves
+of `struct` type.
+That is, **there can only be one level of sub-`struct` nesting**:
+  * `struct`-type elements of lists of structs cannot have fields that are of `struct`-type
+  * `struct`-type top-level columns can have fields that are themselves of `struct`-type, so long as these sub-`struct`s do not themselves have fields that are of `struct`-type
 
 ## Parquet File Layout Specification
 
