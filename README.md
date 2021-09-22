@@ -97,7 +97,7 @@ That is, **there can only be one level of sub-`struct` nesting**:
 
 This constraint on the level of nesting of sub-`struct`-type fields is for simplicity.
 Additionally, pretty much any complex data structure can be made to fit
-this constraint by flattening any of the more deeply nested sub-`struct`-type fields.
+this constraint through clever flattening of the more deeply nested sub-`struct`-type fields.
 
 ## Parquet File Layout Specification
 
