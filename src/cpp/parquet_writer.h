@@ -96,6 +96,7 @@ class Writer {
     std::map<std::string, uint64_t> _expected_field_fill_map;
     std::vector<std::string> _expected_fields_to_fill;
     std::map<std::string, FillType> _expected_fields_filltype_map;
+
     uint64_t _total_fills_required_per_row;
     uint32_t _row_length;
 
@@ -131,6 +132,7 @@ class Writer {
     void fill_struct_list(const std::string& field_name,
                           arrow::ArrayBuilder* builder,
                           const std::vector<types::buffer_t>& data_buffer);
+
     bool row_complete();
 
     void flush();
