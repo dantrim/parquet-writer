@@ -1,9 +1,9 @@
 #pragma once
 
 // parquetwriter
-#include "parquet_writer_types.h"
-#include "parquet_writer_fill_types.h"
 #include "logging.h"
+#include "parquet_writer_fill_types.h"
+#include "parquet_writer_types.h"
 namespace spdlog {
 class logger;
 }
@@ -72,7 +72,6 @@ class Writer {
     static const std::string flushrule2str(const FlushRule& flush_rule);
 
  private:
-
     // Parquet output wrtier
     std::unique_ptr<parquet::arrow::FileWriter> _file_writer;
     std::shared_ptr<arrow::fs::FileSystem> _fs;
@@ -121,10 +120,17 @@ class Writer {
     void update_output_stream();
     void new_file();
 
-    void fill_value(const std::string& field_name, arrow::ArrayBuilder* builder, const std::vector<types::buffer_t>& data_buffer);
-    void fill_value_list(const std::string& field_name, arrow::ArrayBuilder* builder, const std::vector<types::buffer_t>& data_buffer);
-    void fill_struct(const std::string& field_name, arrow::ArrayBuilder* builder, const std::vector<types::buffer_t>& data_buffer);
-    void fill_struct_list(const std::string& field_name, arrow::ArrayBuilder* builder, const std::vector<types::buffer_t>& data_buffer);
+    void fill_value(const std::string& field_name, arrow::ArrayBuilder* builder,
+                    const std::vector<types::buffer_t>& data_buffer);
+    void fill_value_list(const std::string& field_name,
+                         arrow::ArrayBuilder* builder,
+                         const std::vector<types::buffer_t>& data_buffer);
+    void fill_struct(const std::string& field_name,
+                     arrow::ArrayBuilder* builder,
+                     const std::vector<types::buffer_t>& data_buffer);
+    void fill_struct_list(const std::string& field_name,
+                          arrow::ArrayBuilder* builder,
+                          const std::vector<types::buffer_t>& data_buffer);
     bool row_complete();
 
     void flush();

@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
 
     // create and initialize the parquetwriter::Writer
     namespace pw = parquetwriter;
-    pw::logging::set_debug(); // set debug for examples
+    pw::logging::set_debug();  // set debug for examples
 
     pw::Writer writer;
     writer.set_layout(layout);
