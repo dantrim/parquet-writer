@@ -1,5 +1,8 @@
 #pragma once
 
+#include "parquet_writer_fill_types.h"
+#include "parquet_writer_types.h"
+
 // std/stl
 #include <map>
 #include <memory>
@@ -31,9 +34,9 @@
     if constexpr (std::is_same<TEMPLATE_TYPE, CPP_CLASS>::value) {           \
         auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(                 \
             LIST_BUILDER->value_builder());                                  \
-        for (auto v : val) {                                                 \
+        for (size_t i = 0; i < val.size(); i++) {                            \
             PARQUET_THROW_NOT_OK(LIST_BUILDER->Append());                    \
-            PARQUET_THROW_NOT_OK(vb->AppendValues(v));                       \
+            PARQUET_THROW_NOT_OK(vb->AppendValues(val.at(i)));               \
         }                                                                    \
     } else
 
@@ -94,35 +97,29 @@ static std::map<std::string, TypeInitFunc> const type_init_map = {
 
 using nlohmann::json;
 
-class ColumnWrapper {
- public:
-    ColumnWrapper(std::string name);
-    ~ColumnWrapper() = default;
-    arrow::ArrayBuilder* builder() { return _builder; }
-    const std::string name() { return _name; }
-    void create_builder(std::shared_ptr<arrow::DataType> type);
-    // void finish(std::vector<std::shared_ptr<arrow::Array>> array_vec);
-
- private:
-    std::string _name;
-    arrow::ArrayBuilder* _builder;
-
-};  // class Node
-
 std::shared_ptr<arrow::DataType> datatype_from_string(
     const std::string& type_string);
-std::vector<std::shared_ptr<arrow::Field>> fields_from_json(
+std::vector<std::shared_ptr<arrow::Field>> columns_from_json(
     const json& jlayout, const std::string& current_node = "");
 
-std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>>
-col_builder_map_from_fields(
-    const std::vector<std::shared_ptr<arrow::Field>>& fields);
+std::pair<std::vector<std::string>,
+          std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>>>
+fill_field_builder_map_from_columns(
+    const std::vector<std::shared_ptr<arrow::Field>>& columns);
 
-std::map<std::string, arrow::ArrayBuilder*> makeVariableMap(
-    std::shared_ptr<ColumnWrapper> node);
-void makeVariableMap(arrow::ArrayBuilder* builder, std::string parentname,
-                     std::string prefix,
-                     std::map<std::string, arrow::ArrayBuilder*>& out_map);
+parquetwriter::FillType column_filltype_from_builder(
+    arrow::ArrayBuilder* column_builder, const std::string& column_name);
+
+bool valid_sub_struct_layout(arrow::StructBuilder* struct_builder,
+                             const std::string& parent_column_name);
+std::pair<unsigned, arrow::ArrayBuilder*> list_builder_description(
+    arrow::ListBuilder* list_builder);
+std::pair<std::vector<std::string>, std::vector<arrow::ArrayBuilder*>>
+struct_type_field_builders(arrow::ArrayBuilder* builder,
+                           const std::string& column_name);
+
+parquetwriter::struct_t struct_from_data_buffer_element(
+    const parquetwriter::types::buffer_t& data, const std::string& field_name);
 
 std::pair<unsigned, unsigned> field_nums_from_struct(
     const arrow::StructBuilder* builder, const std::string& column_name);

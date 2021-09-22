@@ -125,6 +125,8 @@ int main(int argc, char* argv[]) {
 
     // create and initialize the parquetwriter::Writer
     namespace pw = parquetwriter;
+    pw::logging::set_debug();  // set debug for the examples
+
     pw::Writer writer;
     writer.set_layout(layout);
     writer.set_dataset_name("example_dataset");

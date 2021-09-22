@@ -5,6 +5,7 @@ target_sources(parquet-writer
     PRIVATE
     parquet_writer.cpp
     parquet_helpers.cpp
+    parquet_writer_fill_types.cpp
     logging.cpp
 )
 

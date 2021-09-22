@@ -1,9 +1,9 @@
 #include "parquet_writer.h"
 
-#include "logging.h"
 #include "parquet_helpers.h"
 
 // std/stl
+#include <algorithm>
 #include <filesystem>
 #include <sstream>
 
@@ -15,9 +15,9 @@ Writer::Writer()
     : _output_directory("./"),
       _dataset_name(""),
       _file_count(0),
-      _fill_count(0),
       _row_length(0),
       _field_fill_count(0),
+      _total_fills_required_per_row(0),
       _n_rows_in_group(-1),
       _compression(Compression::UNCOMPRESSED),
       _flush_rule(FlushRule::NROWS),
@@ -89,8 +89,8 @@ void Writer::set_layout(const std::string& field_layout_json_str) {
 void Writer::set_layout(const nlohmann::json& field_layout) {
     // there must be a top-level "fields" node
 
-    _fields = helpers::fields_from_json(field_layout);
-    if (_fields.size() == 0) {
+    _columns = helpers::columns_from_json(field_layout);
+    if (_columns.size() == 0) {
         std::stringstream err;
         err << "No fields constructed from provided file layout";
         log->error("{0} - {1}", __PRETTYFUNCTION__,
@@ -98,17 +98,47 @@ void Writer::set_layout(const nlohmann::json& field_layout) {
         throw std::runtime_error(err.str());
     }
 
-    for (auto& f : _fields) {
-        _column_fill_map[f->name()] = 0;
-    }
-
-    _schema = arrow::schema(_fields);
+    _schema = arrow::schema(_columns);
     _arrays.clear();
     if (!_file_metadata.empty()) {
         this->set_metadata(_file_metadata);
     }
     // create the column -> ArrayBuilder mapping
-    _col_builder_map = helpers::col_builder_map_from_fields(_fields);
+
+    auto [expected_fields_to_fill, column_builder_map] =
+        helpers::fill_field_builder_map_from_columns(_columns);
+    _expected_fields_to_fill = expected_fields_to_fill;
+    _column_builder_map = column_builder_map;
+
+    _expected_fields_filltype_map.clear();
+
+    log->debug("{0} - ============================================",
+               __PRETTYFUNCTION__);
+    log->debug("{0} - Loaded fill_field_builder_map (size = {1}):",
+               __PRETTYFUNCTION__, _column_builder_map.size());
+    size_t total_fills_per_row = 0;
+    size_t icolumn = 0;
+    for (const auto& column : _columns) {
+        std::string col_name = column->name();
+        auto col_builder_map = _column_builder_map.at(col_name);
+        log->debug("{0} - Column #{1}: {2}", __PRETTYFUNCTION__, icolumn++,
+                   col_name);
+        for (const auto& [sub_name, sub_builder] : col_builder_map) {
+            log->debug("{0} -      {1}: type = {2}, fill_type = {3}",
+                       __PRETTYFUNCTION__, sub_name,
+                       sub_builder->type()->name(),
+                       filltype_to_string(helpers::column_filltype_from_builder(
+                           sub_builder, sub_name)));
+            total_fills_per_row++;
+
+            _expected_fields_filltype_map[sub_name] =
+                helpers::column_filltype_from_builder(sub_builder, sub_name);
+        }
+    }
+
+    for (const auto& field_to_fill : _expected_fields_to_fill) {
+        _expected_field_fill_map[field_to_fill] = 0;
+    }
 }
 
 void Writer::set_metadata(std::ifstream& infile) {
@@ -203,7 +233,7 @@ void Writer::initialize() {
         throw std::logic_error(err.str());
     }
 
-    if (_fields.size() == 0) {
+    if (_columns.size() == 0) {
         std::stringstream err;
         err << "ERROR: Cannot initialize writer with empty layout (no columns "
                "specified)";
@@ -229,7 +259,7 @@ void Writer::initialize() {
     // default RowGroup specification for now (need to make configurable)
     //
     if (_n_rows_in_group < 0) {
-        _n_rows_in_group = 250000 / _fields.size();
+        _n_rows_in_group = 250000 / _expected_fields_to_fill.size();
     }
 
     //
@@ -275,698 +305,400 @@ void Writer::set_flush_rule(const FlushRule& rule, const uint32_t& n) {
     _n_rows_in_group = n;
 }
 
-void Writer::fill(const std::string& field_path,
-                  const std::vector<types::buffer_t>& data_buffer) {
-    size_t pos_parent = field_path.find_first_of("/.");
-    // size_t pos_slash = field_path.find('/');
-    // size_t pos_dot = field_path.find_first_of("./");
-
-    // get the parent column builder for this field
-    arrow::ArrayBuilder* builder = nullptr;
-
-    bool is_parent_path = false;
-    std::string parent_column_name;
-    if (pos_parent != std::string::npos) {
-        parent_column_name = field_path.substr(0, pos_parent);
-    } else {
-        is_parent_path = true;
-        parent_column_name = field_path;
-    }
-
-    if (_col_builder_map.count(parent_column_name) == 0) {
+void Writer::fill_value(const std::string& field_name,
+                        arrow::ArrayBuilder* builder,
+                        const std::vector<types::buffer_t>& data_buffer) {
+    if (data_buffer.size() != 1) {
         std::stringstream err;
-        err << "Could not find parent column with name \"" << parent_column_name
-            << "\" in loaded builders";
+        err << "Filling field \"" << field_name
+            << "\" with expected fill type FillType::VALUE with data buffer "
+               "size != 1 (size = "
+            << data_buffer.size() << ")";
         log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(err.str());
+        throw std::runtime_error("Invalid data buffer shape");
     }
 
-    auto col_map = _col_builder_map.at(parent_column_name);
-    if (col_map.count(field_path) == 0) {
-        std::stringstream err;
-        err << "Cannot fill node with name \"" << field_path
-            << "\", it is not in the builder map";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(err.str());
-    }
-    builder = _col_builder_map.at(parent_column_name).at(field_path);
-
-    // auto builder = _col_builder_map.at(field_path);
-    auto builder_type = builder->type();
-
-    // empty scenarios
-    if (data_buffer.size() == 0) {
-        this->append_empty_value(field_path);
-    }
-
-    //
-    // filling a multivalued column field
-    //
-    if (data_buffer.size() > 1) {
-        bool is_struct = builder_type->id() == arrow::Type::STRUCT;
-        bool is_list = builder_type->id() == arrow::Type::LIST;
-
-        if (is_list) {
-            // handle the case of a list of structs, which
-            // will have a data_buffer looking like:
-            // {
-            //   {a, b, {c, d}},
-            //   {a, b, {c, d}}
-            // }
-            auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
-            PARQUET_THROW_NOT_OK(list_builder->Append());
-            auto value_builder = list_builder->value_builder();
-            auto value_type = value_builder->type();
-
-            bool is_list2 = value_type->id() == arrow::Type::LIST;
-            if (is_list2) {
-                // data_buffer looking like:
-                // {
-                //    {
-                //      {a, b, {c, d}},
-                //      {a, b, {c, d}},
-                //    }
-                // }
-
-                auto list2_builder =
-                    dynamic_cast<arrow::ListBuilder*>(value_builder);
-                auto value2_builder = list2_builder->value_builder();
-                auto value2_type = value2_builder->type();
-
-                bool is_list3 = value2_type->id() == arrow::Type::LIST;
-                if (is_list3) {
-                    auto list3_builder =
-                        dynamic_cast<arrow::ListBuilder*>(value2_builder);
-                    auto value3_builder = list3_builder->value_builder();
-                    auto value3_type = value3_builder->type();
-
-                    std::string value_node_name = field_path + "/item";
-                    for (size_t i = 0; i < data_buffer.size(); i++) {
-                        PARQUET_THROW_NOT_OK(list2_builder->Append());
-                        auto ivec = std::get<std::vector<
-                            std::vector<std::vector<types::buffer_value_t>>>>(
-                            data_buffer.at(i));
-                        for (size_t j = 0; j < ivec.size(); j++) {
-                            PARQUET_THROW_NOT_OK(list3_builder->Append());
-                            auto jvec = ivec.at(j);
-                            for (size_t k = 0; k < jvec.size(); k++) {
-                                auto element_data = jvec.at(k);
-                                this->fill(value_node_name, {element_data});
-                            }
-
-                        }  // j
-                    }      // i
-
-                } else {
-                    std::string value_node_name = field_path + "/item";
-                    for (size_t ielement = 0; ielement < data_buffer.size();
-                         ielement++) {
-                        PARQUET_THROW_NOT_OK(list2_builder->Append());
-                        auto element_data_vec = std::get<
-                            std::vector<std::vector<types::buffer_value_t>>>(
-                            data_buffer.at(ielement));
-                        for (size_t jelement = 0;
-                             jelement < element_data_vec.size(); jelement++) {
-                            auto element_data = element_data_vec.at(jelement);
-
-                            this->fill(value_node_name, {element_data});
-                        }  // jelement
-                    }      // ielement
-                }          // 2d list
-            } else {
-                // if(value_type->id() != arrow::Type::STRUCT) {
-                //    std::stringstream err;
-                //    err << "ERROR: Only handle nested list[struct], but you
-                //    are trying list[" << value_type->name() << "]"; throw
-                //    std::runtime_error(err.str());
-                //}
-
-                std::string value_node_name = field_path + "/item";
-                for (size_t ielement = 0; ielement < data_buffer.size();
-                     ielement++) {
-                    auto element_data_vec =
-                        std::get<std::vector<types::buffer_value_t>>(
-                            data_buffer.at(ielement));
-                    this->fill(value_node_name, {element_data_vec});
-                }  // ielement
-            }      // 1D list
-        } else if (is_struct) {
-            auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
-            auto struct_type = struct_builder->type();
-            PARQUET_THROW_NOT_OK(struct_builder->Append());
-
-            auto [num_total_fields, num_fields_nonstruct] =
-                helpers::field_nums_from_struct(struct_builder, field_path);
-            if (data_buffer.size() != num_fields_nonstruct) {
-                std::stringstream err;
-                err << " [0] Invalid number of data elements provided for "
-                       "struct column \""
-                    << field_path << "\": expect " << num_fields_nonstruct
-                    << ", got " << data_buffer.size();
-                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-                throw std::runtime_error(err.str());
-            }
-
-            for (size_t ifield = 0; ifield < num_total_fields; ifield++) {
-                auto field_builder = struct_builder->child_builder(ifield);
-                auto field_type = field_builder->type();
-                auto field_name = struct_type->field(ifield)->ToString();
-
-                if (ifield >= data_buffer.size()) break;
-                if (field_type->id() == arrow::Type::STRUCT) {
-                    ifield--;
-                    continue;
-                }
-
-                types::buffer_t field_data = data_buffer.at(ifield);
-                if (auto val =
-                        std::get_if<types::buffer_value_t>(&field_data)) {
-                    std::stringstream field_node_name;
-                    field_node_name << field_path << "." << field_name;
-                    this->fill(field_node_name.str(), {*val});
-                }
-            }  // ifield
-        }      // is_struct
-    } else if (data_buffer.size() == 1) {
-        auto data = data_buffer.at(0);
-        if (auto val = std::get_if<types::buffer_value_t>(&data)) {
-            // data is flat (array-like)
-            if (auto v = std::get_if<bool>(val)) {
-                helpers::fill<bool>(*v, builder);
-            } else if (auto v = std::get_if<uint8_t>(val)) {
-                helpers::fill<uint8_t>(*v, builder);
-            } else if (auto v = std::get_if<uint16_t>(val)) {
-                helpers::fill<uint16_t>(*v, builder);
-            } else if (auto v = std::get_if<uint32_t>(val)) {
-                helpers::fill<uint32_t>(*v, builder);
-            } else if (auto v = std::get_if<uint64_t>(val)) {
-                helpers::fill<uint64_t>(*v, builder);
-            } else if (auto v = std::get_if<int8_t>(val)) {
-                helpers::fill<int8_t>(*v, builder);
-            } else if (auto v = std::get_if<int16_t>(val)) {
-                helpers::fill<int16_t>(*v, builder);
-            } else if (auto v = std::get_if<int32_t>(val)) {
-                helpers::fill<int32_t>(*v, builder);
-            } else if (auto v = std::get_if<int64_t>(val)) {
-                helpers::fill<int64_t>(*v, builder);
-            } else if (auto v = std::get_if<float>(val)) {
-                helpers::fill<float>(*v, builder);
-            } else if (auto v = std::get_if<double>(val)) {
-                helpers::fill<double>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<bool>>(val)) {
-                helpers::fill<std::vector<bool>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<uint8_t>>(val)) {
-                helpers::fill<std::vector<uint8_t>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<uint16_t>>(val)) {
-                helpers::fill<std::vector<uint16_t>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<uint32_t>>(val)) {
-                helpers::fill<std::vector<uint32_t>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<uint64_t>>(val)) {
-                helpers::fill<std::vector<uint64_t>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<int8_t>>(val)) {
-                helpers::fill<std::vector<int8_t>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<int16_t>>(val)) {
-                helpers::fill<std::vector<int16_t>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<int32_t>>(val)) {
-                helpers::fill<std::vector<int32_t>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<int64_t>>(val)) {
-                helpers::fill<std::vector<int64_t>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<float>>(val)) {
-                helpers::fill<std::vector<float>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<double>>(val)) {
-                helpers::fill<std::vector<double>>(*v, builder);
-            } else if (auto v =
-                           std::get_if<std::vector<std::vector<bool>>>(val)) {
-                helpers::fill<std::vector<std::vector<bool>>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<std::vector<uint8_t>>>(
+    auto data = data_buffer.at(0);
+    if (auto val = std::get_if<types::buffer_value_t>(&data)) {
+        if (auto v = std::get_if<bool>(val)) {
+            helpers::fill<bool>(*v, builder);
+        } else if (auto v = std::get_if<uint8_t>(val)) {
+            helpers::fill<uint8_t>(*v, builder);
+        } else if (auto v = std::get_if<uint16_t>(val)) {
+            helpers::fill<uint16_t>(*v, builder);
+        } else if (auto v = std::get_if<uint32_t>(val)) {
+            helpers::fill<uint32_t>(*v, builder);
+        } else if (auto v = std::get_if<uint64_t>(val)) {
+            helpers::fill<uint64_t>(*v, builder);
+        } else if (auto v = std::get_if<int8_t>(val)) {
+            helpers::fill<int8_t>(*v, builder);
+        } else if (auto v = std::get_if<int16_t>(val)) {
+            helpers::fill<int16_t>(*v, builder);
+        } else if (auto v = std::get_if<int32_t>(val)) {
+            helpers::fill<int32_t>(*v, builder);
+        } else if (auto v = std::get_if<int64_t>(val)) {
+            helpers::fill<int64_t>(*v, builder);
+        } else if (auto v = std::get_if<float>(val)) {
+            helpers::fill<float>(*v, builder);
+        } else if (auto v = std::get_if<double>(val)) {
+            helpers::fill<double>(*v, builder);
+        } else if (auto v = std::get_if<std::vector<bool>>(val)) {
+            helpers::fill<std::vector<bool>>(*v, builder);
+        } else if (auto v = std::get_if<std::vector<uint8_t>>(val)) {
+            helpers::fill<std::vector<uint8_t>>(*v, builder);
+        } else if (auto v = std::get_if<std::vector<uint16_t>>(val)) {
+            helpers::fill<std::vector<uint16_t>>(*v, builder);
+        } else if (auto v = std::get_if<std::vector<uint32_t>>(val)) {
+            helpers::fill<std::vector<uint32_t>>(*v, builder);
+        } else if (auto v = std::get_if<std::vector<uint64_t>>(val)) {
+            helpers::fill<std::vector<uint64_t>>(*v, builder);
+        } else if (auto v = std::get_if<std::vector<int8_t>>(val)) {
+            helpers::fill<std::vector<int8_t>>(*v, builder);
+        } else if (auto v = std::get_if<std::vector<int16_t>>(val)) {
+            helpers::fill<std::vector<int16_t>>(*v, builder);
+        } else if (auto v = std::get_if<std::vector<int32_t>>(val)) {
+            helpers::fill<std::vector<int32_t>>(*v, builder);
+        } else if (auto v = std::get_if<std::vector<int64_t>>(val)) {
+            helpers::fill<std::vector<int64_t>>(*v, builder);
+        } else if (auto v = std::get_if<std::vector<float>>(val)) {
+            helpers::fill<std::vector<float>>(*v, builder);
+        } else if (auto v = std::get_if<std::vector<double>>(val)) {
+            helpers::fill<std::vector<double>>(*v, builder);
+        } else if (auto v = std::get_if<std::vector<std::vector<bool>>>(val)) {
+            helpers::fill<std::vector<std::vector<bool>>>(*v, builder);
+        } else if (auto v =
+                       std::get_if<std::vector<std::vector<uint8_t>>>(val)) {
+            helpers::fill<std::vector<std::vector<uint8_t>>>(*v, builder);
+        } else if (auto v =
+                       std::get_if<std::vector<std::vector<uint16_t>>>(val)) {
+            helpers::fill<std::vector<std::vector<uint16_t>>>(*v, builder);
+        } else if (auto v =
+                       std::get_if<std::vector<std::vector<uint32_t>>>(val)) {
+            helpers::fill<std::vector<std::vector<uint32_t>>>(*v, builder);
+        } else if (auto v =
+                       std::get_if<std::vector<std::vector<uint64_t>>>(val)) {
+            helpers::fill<std::vector<std::vector<uint64_t>>>(*v, builder);
+        } else if (auto v =
+                       std::get_if<std::vector<std::vector<int8_t>>>(val)) {
+            helpers::fill<std::vector<std::vector<int8_t>>>(*v, builder);
+        } else if (auto v =
+                       std::get_if<std::vector<std::vector<int16_t>>>(val)) {
+            helpers::fill<std::vector<std::vector<int16_t>>>(*v, builder);
+        } else if (auto v =
+                       std::get_if<std::vector<std::vector<int32_t>>>(val)) {
+            helpers::fill<std::vector<std::vector<int32_t>>>(*v, builder);
+        } else if (auto v =
+                       std::get_if<std::vector<std::vector<int64_t>>>(val)) {
+            helpers::fill<std::vector<std::vector<int64_t>>>(*v, builder);
+        } else if (auto v = std::get_if<std::vector<std::vector<float>>>(val)) {
+            helpers::fill<std::vector<std::vector<float>>>(*v, builder);
+        } else if (auto v =
+                       std::get_if<std::vector<std::vector<double>>>(val)) {
+            helpers::fill<std::vector<std::vector<double>>>(*v, builder);
+        } else if (auto v =
+                       std::get_if<std::vector<std::vector<std::vector<bool>>>>(
                            val)) {
-                helpers::fill<std::vector<std::vector<uint8_t>>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<std::vector<uint16_t>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<uint16_t>>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<std::vector<uint32_t>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<uint32_t>>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<std::vector<uint64_t>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<uint64_t>>>(*v, builder);
-            } else if (auto v =
-                           std::get_if<std::vector<std::vector<int8_t>>>(val)) {
-                helpers::fill<std::vector<std::vector<int8_t>>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<std::vector<int16_t>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<int16_t>>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<std::vector<int32_t>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<int32_t>>>(*v, builder);
-            } else if (auto v = std::get_if<std::vector<std::vector<int64_t>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<int64_t>>>(*v, builder);
-            } else if (auto v =
-                           std::get_if<std::vector<std::vector<float>>>(val)) {
-                helpers::fill<std::vector<std::vector<float>>>(*v, builder);
-            } else if (auto v =
-                           std::get_if<std::vector<std::vector<double>>>(val)) {
-                helpers::fill<std::vector<std::vector<double>>>(*v, builder);
-            } else if (auto v = std::get_if<
-                           std::vector<std::vector<std::vector<bool>>>>(val)) {
-                helpers::fill<std::vector<std::vector<std::vector<bool>>>>(
-                    *v, builder);
-            } else if (auto v = std::get_if<
-                           std::vector<std::vector<std::vector<uint8_t>>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<std::vector<uint8_t>>>>(
-                    *v, builder);
-            } else if (auto v = std::get_if<
-                           std::vector<std::vector<std::vector<uint16_t>>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<std::vector<uint16_t>>>>(
-                    *v, builder);
-            } else if (auto v = std::get_if<
-                           std::vector<std::vector<std::vector<uint32_t>>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<std::vector<uint32_t>>>>(
-                    *v, builder);
-            } else if (auto v = std::get_if<
-                           std::vector<std::vector<std::vector<uint64_t>>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<std::vector<uint64_t>>>>(
-                    *v, builder);
-            } else if (auto v = std::get_if<
-                           std::vector<std::vector<std::vector<int8_t>>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<std::vector<int8_t>>>>(
-                    *v, builder);
-            } else if (auto v = std::get_if<
-                           std::vector<std::vector<std::vector<int16_t>>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<std::vector<int16_t>>>>(
-                    *v, builder);
-            } else if (auto v = std::get_if<
-                           std::vector<std::vector<std::vector<int32_t>>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<std::vector<int32_t>>>>(
-                    *v, builder);
-            } else if (auto v = std::get_if<
-                           std::vector<std::vector<std::vector<int64_t>>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<std::vector<int64_t>>>>(
-                    *v, builder);
-            } else if (auto v = std::get_if<
-                           std::vector<std::vector<std::vector<float>>>>(val)) {
-                helpers::fill<std::vector<std::vector<std::vector<float>>>>(
-                    *v, builder);
-            } else if (auto v = std::get_if<
-                           std::vector<std::vector<std::vector<double>>>>(
-                           val)) {
-                helpers::fill<std::vector<std::vector<std::vector<double>>>>(
-                    *v, builder);
-            } else {
-                std::stringstream err;
-                err << "Invalid type, cannot fill";
-                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-                throw std::logic_error(err.str());
-            }
-        } else if (auto val =
-                       std::get_if<std::vector<types::buffer_value_t>>(&data)) {
-            // here we handle the case of a data buffer containing a a
-            // vector of potentially differently-typed fields (e.g. a struct)
-
-            size_t try_count = 0;
-            while (builder_type->id() != arrow::Type::STRUCT) {
-                if (try_count > 3) {
-                    std::stringstream err;
-                    err << "Expected builder type of \"struct\" for field with "
-                           "name \""
-                        << field_path << "\", got \"" << builder_type->name()
-                        << "\"";
-                    log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-                    throw std::runtime_error(err.str());
-                }
-                if (builder_type->id() == arrow::Type::LIST) {
-                    auto tmp = dynamic_cast<arrow::ListBuilder*>(builder)
-                                   ->value_builder();
-                    auto tmp_type = tmp->type();
-                    // if(tmp_type->id() == arrow::Type::STRUCT) {
-                    builder = tmp;
-                    builder_type = builder->type();
-                    //}
-                }
-                try_count++;
-            }
-            types::buffer_value_vec_t field_data_vec = *val;
-
-            auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
-            auto struct_type = struct_builder->type();
-            PARQUET_THROW_NOT_OK(struct_builder->Append());
-
-            auto [num_total_fields, num_fields_nonstruct] =
-                helpers::field_nums_from_struct(struct_builder, field_path);
-            if (field_data_vec.size() != num_fields_nonstruct) {
-                std::stringstream err;
-                err << " [1] Invalid number of data elements provided for "
-                       "struct column \""
-                    << field_path << "\": expect " << num_fields_nonstruct
-                    << ", got " << field_data_vec.size();
-                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-                throw std::runtime_error(err.str());
-            }
-
-            for (size_t ifield = 0; ifield < num_total_fields; ifield++) {
-                auto field_builder = struct_builder->child_builder(ifield);
-                auto field_type = field_builder->type();
-                auto field_name = struct_type->field(ifield)->ToString();
-
-                // don't consider inner structs, they must be called
-                // manually with a new call to "fill"
-
-                // for structs within structs, you MUST fill from outer to inner
-                // e.g.
-                //      writer.fill("struct", {struct_data});
-                //      writer.fill("struct.inner_struct", {inner_struct_data});
-                if (ifield >= field_data_vec.size()) break;
-                if (field_type->id() == arrow::Type::STRUCT) {
-                    ifield--;
-                    continue;
-                }
-
-                bool field_ok = false;
-                types::buffer_value_t field_data = field_data_vec.at(ifield);
-                switch (field_type->id()) {
-                    case arrow::Type::BOOL:
-                        if (auto v = std::get_if<bool>(&field_data)) {
-                            helpers::fill<bool>(*v, field_builder.get());
-                            field_ok = true;
-                        }
-                        break;
-                    case arrow::Type::UINT8:
-                        if (auto v = std::get_if<uint8_t>(&field_data)) {
-                            helpers::fill<uint8_t>(*v, field_builder.get());
-                            field_ok = true;
-                        }
-                        break;
-                    case arrow::Type::UINT16:
-                        if (auto v = std::get_if<uint16_t>(&field_data)) {
-                            helpers::fill<uint16_t>(*v, field_builder.get());
-                            field_ok = true;
-                        }
-                        break;
-                    case arrow::Type::UINT32:
-                        if (auto v = std::get_if<uint32_t>(&field_data)) {
-                            helpers::fill<uint32_t>(*v, field_builder.get());
-                            field_ok = true;
-                        }
-                        break;
-                    case arrow::Type::UINT64:
-                        if (auto v = std::get_if<uint64_t>(&field_data)) {
-                            helpers::fill<uint64_t>(*v, field_builder.get());
-                            field_ok = true;
-                        }
-                        break;
-                    case arrow::Type::INT8:
-                        if (auto v = std::get_if<int8_t>(&field_data)) {
-                            helpers::fill<int8_t>(*v, field_builder.get());
-                            field_ok = true;
-                        }
-                        break;
-                    case arrow::Type::INT16:
-                        if (auto v = std::get_if<int16_t>(&field_data)) {
-                            helpers::fill<int16_t>(*v, field_builder.get());
-                            field_ok = true;
-                        }
-                        break;
-                    case arrow::Type::INT32:
-                        if (auto v = std::get_if<int32_t>(&field_data)) {
-                            helpers::fill<int32_t>(*v, field_builder.get());
-                            field_ok = true;
-                        }
-                        break;
-                    case arrow::Type::INT64:
-                        if (auto v = std::get_if<int64_t>(&field_data)) {
-                            helpers::fill<int64_t>(*v, field_builder.get());
-                            field_ok = true;
-                        }
-                        break;
-                    case arrow::Type::FLOAT:
-                        if (auto v = std::get_if<float>(&field_data)) {
-                            helpers::fill<float>(*v, field_builder.get());
-                            field_ok = true;
-                        }
-                        break;
-                    case arrow::Type::DOUBLE:
-                        if (auto v = std::get_if<double>(&field_data)) {
-                            helpers::fill<double>(*v, field_builder.get());
-                            field_ok = true;
-                        }
-                        break;
-
-                    case arrow::Type::LIST:
-                        if (auto v =
-                                std::get_if<std::vector<bool>>(&field_data)) {
-                            helpers::fill<std::vector<bool>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<uint8_t>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<uint8_t>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<uint16_t>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<uint16_t>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<uint32_t>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<uint32_t>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<uint64_t>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<uint64_t>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<int8_t>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<int8_t>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<int16_t>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<int16_t>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<int32_t>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<int32_t>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<int64_t>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<int64_t>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<float>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<float>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<double>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<double>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else
-                            // 2D list field
-                            if (auto v =
-                                    std::get_if<std::vector<std::vector<bool>>>(
-                                        &field_data)) {
-                            helpers::fill<std::vector<std::vector<bool>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<
-                                       std::vector<std::vector<uint8_t>>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<std::vector<uint8_t>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<
-                                       std::vector<std::vector<uint16_t>>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<std::vector<uint16_t>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<
-                                       std::vector<std::vector<uint32_t>>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<std::vector<uint32_t>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<
-                                       std::vector<std::vector<uint64_t>>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<std::vector<uint64_t>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<
-                                       std::vector<std::vector<int8_t>>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<std::vector<int8_t>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<
-                                       std::vector<std::vector<int16_t>>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<std::vector<int16_t>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<
-                                       std::vector<std::vector<int32_t>>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<std::vector<int32_t>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<
-                                       std::vector<std::vector<int64_t>>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<std::vector<int64_t>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<
-                                       std::vector<std::vector<float>>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<std::vector<float>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<
-                                       std::vector<std::vector<double>>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<std::vector<double>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<
-                                       std::vector<std::vector<bool>>>>(
-                                       &field_data)) {
-                            helpers::fill<
-                                std::vector<std::vector<std::vector<bool>>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<
-                                       std::vector<std::vector<uint8_t>>>>(
-                                       &field_data)) {
-                            helpers::fill<
-                                std::vector<std::vector<std::vector<uint8_t>>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<
-                                       std::vector<std::vector<uint16_t>>>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<
-                                std::vector<std::vector<uint16_t>>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<
-                                       std::vector<std::vector<uint32_t>>>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<
-                                std::vector<std::vector<uint32_t>>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<
-                                       std::vector<std::vector<uint64_t>>>>(
-                                       &field_data)) {
-                            helpers::fill<std::vector<
-                                std::vector<std::vector<uint64_t>>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<
-                                       std::vector<std::vector<int8_t>>>>(
-                                       &field_data)) {
-                            helpers::fill<
-                                std::vector<std::vector<std::vector<int8_t>>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<
-                                       std::vector<std::vector<int16_t>>>>(
-                                       &field_data)) {
-                            helpers::fill<
-                                std::vector<std::vector<std::vector<int16_t>>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<
-                                       std::vector<std::vector<int32_t>>>>(
-                                       &field_data)) {
-                            helpers::fill<
-                                std::vector<std::vector<std::vector<int32_t>>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<
-                                       std::vector<std::vector<int64_t>>>>(
-                                       &field_data)) {
-                            helpers::fill<
-                                std::vector<std::vector<std::vector<int64_t>>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<
-                                       std::vector<std::vector<float>>>>(
-                                       &field_data)) {
-                            helpers::fill<
-                                std::vector<std::vector<std::vector<float>>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else if (auto v = std::get_if<std::vector<
-                                       std::vector<std::vector<double>>>>(
-                                       &field_data)) {
-                            helpers::fill<
-                                std::vector<std::vector<std::vector<double>>>>(
-                                *v, field_builder.get());
-                            field_ok = true;
-                        } else {
-                            std::stringstream err;
-                            err << "Unhandled fill type for struct field";
-                            log->error("{0} - {1}", __PRETTYFUNCTION__,
-                                       err.str());
-                            throw std::runtime_error(err.str());
-                        }
-                        break;
-                    default:
-                        std::stringstream err;
-                        err << "Could not field field \"" << field_name
-                            << "\" for struct \"" << field_path;
-                        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-                        throw std::runtime_error(err.str());
-                        break;
-                }  // switch
-                if (!field_ok) {
-                    std::stringstream err;
-                    err << "Failed to fill field \"" << field_name
-                        << "\" for struct \"" << field_path;
-                    log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-                    throw std::runtime_error(err.str());
-                }
-            }  // ifield
+            helpers::fill<std::vector<std::vector<std::vector<bool>>>>(*v,
+                                                                       builder);
+        } else if (auto v = std::get_if<
+                       std::vector<std::vector<std::vector<uint8_t>>>>(val)) {
+            helpers::fill<std::vector<std::vector<std::vector<uint8_t>>>>(
+                *v, builder);
+        } else if (auto v = std::get_if<
+                       std::vector<std::vector<std::vector<uint16_t>>>>(val)) {
+            helpers::fill<std::vector<std::vector<std::vector<uint16_t>>>>(
+                *v, builder);
+        } else if (auto v = std::get_if<
+                       std::vector<std::vector<std::vector<uint32_t>>>>(val)) {
+            helpers::fill<std::vector<std::vector<std::vector<uint32_t>>>>(
+                *v, builder);
+        } else if (auto v = std::get_if<
+                       std::vector<std::vector<std::vector<uint64_t>>>>(val)) {
+            helpers::fill<std::vector<std::vector<std::vector<uint64_t>>>>(
+                *v, builder);
+        } else if (auto v = std::get_if<
+                       std::vector<std::vector<std::vector<int8_t>>>>(val)) {
+            helpers::fill<std::vector<std::vector<std::vector<int8_t>>>>(
+                *v, builder);
+        } else if (auto v = std::get_if<
+                       std::vector<std::vector<std::vector<int16_t>>>>(val)) {
+            helpers::fill<std::vector<std::vector<std::vector<int16_t>>>>(
+                *v, builder);
+        } else if (auto v = std::get_if<
+                       std::vector<std::vector<std::vector<int32_t>>>>(val)) {
+            helpers::fill<std::vector<std::vector<std::vector<int32_t>>>>(
+                *v, builder);
+        } else if (auto v = std::get_if<
+                       std::vector<std::vector<std::vector<int64_t>>>>(val)) {
+            helpers::fill<std::vector<std::vector<std::vector<int64_t>>>>(
+                *v, builder);
+        } else if (auto v = std::get_if<
+                       std::vector<std::vector<std::vector<float>>>>(val)) {
+            helpers::fill<std::vector<std::vector<std::vector<float>>>>(
+                *v, builder);
+        } else if (auto v = std::get_if<
+                       std::vector<std::vector<std::vector<double>>>>(val)) {
+            helpers::fill<std::vector<std::vector<std::vector<double>>>>(
+                *v, builder);
         } else {
             std::stringstream err;
-            err << "Invalid data type given to fill method for field at \""
-                << field_path << "\"";
+            err << "Invalid data type in data buffer provided for field \""
+                << field_name << "\"";
             log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
             throw std::runtime_error(err.str());
         }
+    } else {
+        std::stringstream err;
+        err << "Could not get data buffer value for filling field \""
+            << field_name << "\"";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error(err.str());
+    }
+}
+
+void Writer::fill_value_list(const std::string& field_name,
+                             arrow::ArrayBuilder* builder,
+                             const std::vector<types::buffer_t>& data_buffer) {
+    if (data_buffer.size() != 1) {
+        std::stringstream err;
+        err << "Filling field \"" << field_name
+            << "\" with expected fill type FillType::VALUE_LIST_1D with data "
+               "buffer  size != 1 (size = "
+            << data_buffer.size() << ")";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error("Invalid data buffer shape");
     }
 
-    _field_fill_count++;
-    if (is_parent_path) {
-        _column_fill_map.at(field_path)++;
+    auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
+    this->fill_value(field_name, list_builder, data_buffer);
+}
+
+void Writer::fill_struct_list(const std::string& field_name,
+                              arrow::ArrayBuilder* builder,
+                              const std::vector<types::buffer_t>& data_buffer) {
+    auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
+    auto [depth, terminal_builder] =
+        helpers::list_builder_description(list_builder);
+
+    if (depth == 1) {
+        // initiate a new list element
+        PARQUET_THROW_NOT_OK(list_builder->Append());
+
+        // initiate a new struct element
+        auto value_builder = list_builder->value_builder();
+        for (size_t i = 0; i < data_buffer.size(); i++) {
+            struct_t struct_data = helpers::struct_from_data_buffer_element(
+                data_buffer.at(i), field_name);
+            this->fill_struct(field_name, value_builder, {struct_data});
+        }
+    } else if (depth == 2) {
+        PARQUET_THROW_NOT_OK(list_builder->Append());
+        list_builder =
+            dynamic_cast<arrow::ListBuilder*>(list_builder->value_builder());
+        auto value_builder = list_builder->value_builder();
+        for (size_t i = 0; i < data_buffer.size(); i++) {
+            PARQUET_THROW_NOT_OK(list_builder->Append());
+            auto inner_data =
+                std::get<std::vector<struct_t>>(data_buffer.at(i));
+            for (size_t j = 0; j < inner_data.size(); j++) {
+                struct_t struct_data = helpers::struct_from_data_buffer_element(
+                    inner_data.at(j), field_name);
+                this->fill_struct(field_name, value_builder, {struct_data});
+            }
+        }
+    } else if (depth == 3) {
+        PARQUET_THROW_NOT_OK(list_builder->Append());
+        auto inner_list_builder =
+            dynamic_cast<arrow::ListBuilder*>(list_builder->value_builder());
+        auto inner_inner_list_builder = dynamic_cast<arrow::ListBuilder*>(
+            inner_list_builder->value_builder());
+        auto value_builder = inner_inner_list_builder->value_builder();
+        for (size_t i = 0; i < data_buffer.size(); i++) {
+            PARQUET_THROW_NOT_OK(inner_list_builder->Append());
+            auto inner_data =
+                std::get<std::vector<std::vector<struct_t>>>(data_buffer.at(i));
+            for (size_t j = 0; j < inner_data.size(); j++) {
+                PARQUET_THROW_NOT_OK(inner_inner_list_builder->Append());
+                auto inner_inner_data = inner_data.at(
+                    j);  // std::get<std::vector<struct_t>>(inner_data.at(j));
+                for (size_t k = 0; k < inner_inner_data.size(); k++) {
+                    struct_t struct_data =
+                        helpers::struct_from_data_buffer_element(
+                            inner_inner_data.at(k), field_name);
+                    this->fill_struct(field_name, value_builder, {struct_data});
+                }  // k
+            }      // j
+        }          // i
+    }
+}
+
+void Writer::fill_struct(const std::string& field_name,
+                         arrow::ArrayBuilder* builder,
+                         const std::vector<types::buffer_t>& data_buffer) {
+    //
+    // get the struct data
+    //
+    struct_t struct_data;
+    try {
+        struct_data = std::get<struct_t>(data_buffer.at(0));
+    } catch (std::exception& e) {
+        std::stringstream err;
+        err << "Unable to parse struct field data for field \"" << field_name
+            << "\" (data buffer does not contain type "
+               "parquetwriter::struct_t!)";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error("Invalid data buffer shape");
     }
 
-    if (_field_fill_count % _fields.size() == 0) {
-        _fill_count++;
+    auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
+    auto [num_total_fields, num_fields_nonstruct] =
+        helpers::field_nums_from_struct(struct_builder, field_name);
+
+    if (struct_data.size() != num_fields_nonstruct) {
+        std::stringstream err;
+        err << "Invalid number of data elements provided for struct at \""
+            << field_name << "\" (got: " << struct_data.size()
+            << ", expect: " << num_fields_nonstruct << ")";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error("Invalid data buffer shape");
+    }
+
+    // initiate a new struct element
+    PARQUET_THROW_NOT_OK(struct_builder->Append());
+
+    //
+    // here will fill the fields of the struct, assuming that the order and type
+    // of the data in the provided data_buffer/struct_t matches that of the
+    // actual column type
+    //
+    auto struct_type = struct_builder->type();
+    for (size_t ifield = 0; ifield < num_total_fields; ifield++) {
+        auto field_builder = struct_builder->child_builder(ifield).get();
+        auto field_type = field_builder->type();
+        auto field_name = struct_type->field(ifield)->name();
+
+        if (ifield >= struct_data.size()) break;
+        if (field_type->id() == arrow::Type::STRUCT) {
+            ifield--;
+            continue;
+        }
+
+        std::stringstream path_name;
+        path_name << field_name << "/" << field_name;
+        this->fill_value(path_name.str(), field_builder,
+                         {struct_data.at(ifield)});
+    }  // ifield
+}
+
+void Writer::fill(const std::string& field_path,
+                  const std::vector<types::buffer_t>& data_buffer) {
+    if (_expected_fields_filltype_map.count(field_path) == 0) {
+        std::stringstream err;
+        err << "Attempting to fill unknown field \"" << field_path << "\"";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error(err.str());
+    }
+
+    //
+    // get the parent column name (needed for cases in which this is a
+    // sub-field)
+    //
+    size_t pos_parent = field_path.find_first_of("/.");
+    bool is_parent_path = false;
+    std::string parent_column_name = field_path;
+    if (pos_parent != std::string::npos) {
+        parent_column_name = field_path.substr(0, pos_parent);
+    }
+    if (_column_builder_map.count(parent_column_name) == 0) {
+        std::stringstream err;
+        err << "Could not find parent column associated with field \""
+            << field_path << "\"";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error(err.str());
+    }
+
+    auto builder = _column_builder_map.at(parent_column_name).at(field_path);
+    if (!builder) {
+        std::stringstream err;
+        err << "Builder for field \"" << field_path << "\" is null!";
+        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error(err.str());
+    }
+
+    //
+    // perform the fill for the corresponding supported type
+    //
+    auto field_fill_type = _expected_fields_filltype_map.at(field_path);
+
+    if (data_buffer.size() == 0) {
+        // the only time that an empty data buffer is valid is if this is a list
+        // type field
+        if (field_fill_type == FillType::VALUE ||
+            field_fill_type == FillType::STRUCT) {
+            std::stringstream err;
+            err << "Empty data buffer provided for non-list field \""
+                << field_path << "\"";
+            log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+            throw std::runtime_error("Invalid data buffer shape");
+        }
+        this->append_empty_value(field_path);
+    } else {
+        switch (field_fill_type) {
+            case FillType::VALUE:
+                this->fill_value(field_path, builder, data_buffer);
+                break;
+            case FillType::VALUE_LIST_1D:
+            case FillType::VALUE_LIST_2D:
+            case FillType::VALUE_LIST_3D:
+                this->fill_value_list(field_path, builder, data_buffer);
+                break;
+            case FillType::STRUCT:
+                this->fill_struct(field_path, builder, data_buffer);
+                break;
+            case FillType::STRUCT_LIST_1D:
+            case FillType::STRUCT_LIST_2D:
+            case FillType::STRUCT_LIST_3D:
+                this->fill_struct_list(field_path, builder, data_buffer);
+                break;
+            default:
+                throw std::runtime_error("Invalid FillType \"" +
+                                         filltype_to_string(field_fill_type) +
+                                         "\"");
+                break;
+        }  // switch
+    }
+
+    if (std::find(_expected_fields_to_fill.begin(),
+                  _expected_fields_to_fill.end(),
+                  field_path) != _expected_fields_to_fill.end()) {
+        _field_fill_count++;
+        _expected_field_fill_map.at(field_path)++;
+    }
+
+    // signal that the row is complete by incremented the current row length,
+    // flush if necessary
+    if (row_complete()) {
         _row_length++;
-
-        if (_fill_count % _n_rows_in_group == 0) {
+        if (_row_length % _n_rows_in_group == 0) {
             this->flush();
         }
     }
+}
+
+bool Writer::row_complete() {
+    // check that each expected fill field has been filled once
+    bool complete = true;
+    std::vector<std::string> remainders;
+    std::vector<uint64_t> remainders_counts;
+    for (const auto& [field_name, field_fill_count] :
+         _expected_field_fill_map) {
+        if (field_fill_count != 1) {
+            complete = false;
+            remainders.push_back(field_name);
+            remainders_counts.push_back(field_fill_count);
+        }
+    }
+    return complete;
 }
 
 void Writer::append_empty_value(const std::string& field_path) {
@@ -977,9 +709,41 @@ void Writer::append_empty_value(const std::string& field_path) {
         parent_column_name = field_path.substr(0, pos_parent);
     }
 
-    // auto col_map = _col_builder_map.at(parent_column_name);
-    builder = _col_builder_map.at(parent_column_name).at(field_path);
+    auto parent_count = _expected_field_fill_map.at(parent_column_name);
+    for (const auto [sub_field_name, sub_field_count] :
+         _expected_field_fill_map) {
+        if (sub_field_name == parent_column_name) continue;
+        std::stringstream sub_find;
+        sub_find << parent_column_name << ".";
+        bool is_sub_field_of_parent =
+            sub_field_name.find(sub_find.str()) != std::string::npos;
+        if (is_sub_field_of_parent) {
+            // this is a sub-field of the current parent field
+            // if(sub_field_count >= parent_count) {
+            if (sub_field_count != parent_count) {
+                std::stringstream err;
+                err << "Cannot append EMPTY VALUE to field \"" << field_path
+                    << "\", there are unequal fill counts between parent field "
+                       "\""
+                    << parent_column_name << "\" and the child field \""
+                    << field_path
+                    << "\" (parent and child fields must have \"fill\" called "
+                       "on them an equal number of times!)";
+                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                throw std::logic_error("Bad column filling");
+            }
+        }
+    }
+
+    builder = _column_builder_map.at(parent_column_name).at(field_path);
     auto builder_type = builder->type();
+
+    // in principle we could go through the sub-fields of the StructBuilder
+    // and ListBuilder to append null/empty to them -- however, here we just
+    // append null/empty to the parent builder which appends null/empty
+    // to all child builders. this may make the most sense so that we don't
+    // get into situations where we have to deal with the logic of
+    // offsets between parent and child fields
 
     // nested types (list, struct)
     bool is_struct = builder_type->id() == arrow::Type::STRUCT;
@@ -1004,8 +768,40 @@ void Writer::append_null_value(const std::string& field_path) {
         parent_column_name = field_path.substr(0, pos_parent);
     }
 
-    // auto col_map = _col_builder_map.at(parent_column_name);
-    builder = _col_builder_map.at(parent_column_name).at(field_path);
+    // if this is a sub-struct field, then assume that the parent
+    // column builder is already appending a NULL value --
+    // we should not append a null value to a sub-field since then
+    // the offsets will be incorrect (the NULL value added to the parent
+    // already adds a null to the sub-field)
+
+    auto parent_count = _expected_field_fill_map.at(parent_column_name);
+    for (const auto [sub_field_name, sub_field_count] :
+         _expected_field_fill_map) {
+        if (sub_field_name == parent_column_name) continue;
+        std::stringstream sub_find;
+        sub_find << parent_column_name << ".";
+        bool is_sub_field_of_parent =
+            sub_field_name.find(sub_find.str()) != std::string::npos;
+        if (is_sub_field_of_parent) {
+            // this is a sub-field of the current parent field
+            // if(sub_field_count >= parent_count) {
+            if (sub_field_count != parent_count) {
+                std::stringstream err;
+                err << "Cannot append NULL to field \"" << field_path
+                    << "\", there are unequal fill counts between parent field "
+                       "\""
+                    << parent_column_name << "\" and the child field \""
+                    << field_path
+                    << "\" (parent and child fields must have \"fill\" called "
+                       "on them an equal number of times!)";
+                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                throw std::logic_error("Bad column filling");
+            }
+        }
+    }
+
+    // auto col_map = _column_builder_map.at(parent_column_name);
+    builder = _column_builder_map.at(parent_column_name).at(field_path);
     auto builder_type = builder->type();
 
     // nested types (list, struct)
@@ -1024,34 +820,37 @@ void Writer::append_null_value(const std::string& field_path) {
 }
 
 void Writer::end_row() {
-    size_t num_columns = _column_fill_map.size();
-    for (const auto& field : _fields) {
-        std::string col_name = field->name();
-        auto col_row_fill_count = _column_fill_map.at(col_name);
-        if (col_row_fill_count == 0) {
-            this->append_null_value(col_name);
-        } else if (col_row_fill_count > 1) {
+    for (const auto& field : _expected_fields_to_fill) {
+        auto field_fill_count = _expected_field_fill_map.at(field);
+
+        if (field_fill_count == 0) {
+            _row_length++;
+            this->append_null_value(field);
+            if (_row_length % _n_rows_in_group == 0) {
+                this->flush();
+            }
+        } else if (field_fill_count > 1) {
             std::stringstream err;
-            err << "Column \"" << col_name << "\" has been filled "
-                << col_row_fill_count
+            err << "Column field \"" << field << "\" has been filled "
+                << field_fill_count
                 << " times for a single row (should be 1), did you forget to "
-                   "call Writer::end_row()?";
+                   "call Writer::end_row() at some point?";
             throw std::runtime_error(err.str());
         }
     }
 
-    // reset column fill counts
-    for (const auto& f : _fields) {
-        _column_fill_map.at(f->name()) = 0;
+    // reset column field fill counts
+    for (const auto& field_name : _expected_fields_to_fill) {
+        _expected_field_fill_map.at(field_name) = 0;
     }
 }
 
 void Writer::flush() {
     _arrays.clear();
     std::shared_ptr<arrow::Array> array;
-    for (auto& field_name : _fields) {
-        PARQUET_THROW_NOT_OK(_col_builder_map.at(field_name->name())
-                                 .at(field_name->name())
+    for (auto& column : _columns) {
+        PARQUET_THROW_NOT_OK(_column_builder_map.at(column->name())
+                                 .at(column->name())
                                  ->Finish(&array));
         _arrays.push_back(array);
     }
