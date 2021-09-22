@@ -95,6 +95,10 @@ That is, **there can only be one level of sub-`struct` nesting**:
   * `struct`-type elements of lists of structs cannot have fields that are of `struct`-type
   * `struct`-type top-level columns can have fields that are themselves of `struct`-type, so long as these sub-`struct`s do not themselves have fields that are of `struct`-type
 
+This constraint on the level of nesting of sub-`struct`-type fields is for simplicity.
+Additionally, pretty much any complex data structure can be made to fit
+this constraint by flattening any of the more deeply nested sub-`struct`-type fields.
+
 ## Parquet File Layout Specification
 
 Specifying the desired layout of a given Parquet file
