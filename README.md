@@ -14,8 +14,8 @@ The `parquet-writer` library aims to provide support for:
   * Specifying the layout of Parqeut files (what types of columns to store) via JSON
   * Storage for numeric data types and boolean values
   * Storage of one-, two-, and three-dimensional lists
-  * Storage of struct objects with any number of arbitrarily typed fields
-  * A common interface for writing data types to output Parquet files
+  * Storage of struct objects (think: `C` structs) with any number of arbitrarily typed fields
+  * A simple interface for writing all data types to output Parquet files
 
 ## Basic Usage
 
