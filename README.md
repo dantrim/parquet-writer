@@ -81,12 +81,15 @@ by the `parquet-writer` library are summarized in the table below,
 |                 | 2 dimensional: `list[list[struct{<fields>}]` |
 |                 | 3 dimensional: `list[list[list[struct{<fields>}]` |
 
+
 Where `struct{<fields>}` demarcates a data type comprised of any number
 of arbitrarily-typed named-fields (think: C++ `struct`).
 
 Fields of `struct` type can have fields that are basic value types
 (e.g. the integer, floating point, and logical data types)
 as well as 1-, 2-, and 3-dimensional lists of these basic value types.
+
+### Struct Field Constraints 
 
 The fields of `struct` type can also be of `struct`-type or `list[...[struct]]`-type, so long as these
 sub-`struct`-type fields do not contain fields that are themselves
