@@ -103,12 +103,10 @@ void Writer::set_layout(const nlohmann::json& field_layout) {
     if (!_file_metadata.empty()) {
         this->set_metadata(_file_metadata);
     }
-    // create the column -> ArrayBuilder mapping
 
-    auto [expected_fields_to_fill, column_builder_map] =
+    // create the column -> ArrayBuilder mapping
+    std::tie(_expected_fields_to_fill, _column_builder_map) =
         helpers::fill_field_builder_map_from_columns(_columns);
-    _expected_fields_to_fill = expected_fields_to_fill;
-    _column_builder_map = column_builder_map;
 
     _expected_fields_filltype_map.clear();
 
