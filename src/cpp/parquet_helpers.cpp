@@ -7,16 +7,6 @@
 namespace parquetwriter {
 namespace helpers {
 
-ColumnWrapper::ColumnWrapper(std::string name)
-    : _name(name), _builder(nullptr) {}
-
-void ColumnWrapper::create_builder(std::shared_ptr<arrow::DataType> type) {
-    auto pool = arrow::default_memory_pool();
-    std::unique_ptr<arrow::ArrayBuilder> tmp;
-    WRITER_CHECK_RESULT(arrow::MakeBuilder(pool, type, &tmp));
-    _builder = tmp.release();
-}
-
 std::shared_ptr<arrow::DataType> datatype_from_string(
     const std::string& type_string) {
     std::shared_ptr<arrow::DataType> out_type = nullptr;
@@ -79,7 +69,7 @@ std::vector<std::shared_ptr<arrow::Field>> columns_from_json(
                             throw std::runtime_error(err.str());
                         } else if (value_type3 == "struct") {
                             auto struct_fields =
-                                fields_from_json(jcontains3, field_name);
+                                columns_from_json(jcontains3, field_name);
                             auto end_list_type = arrow::struct_(struct_fields);
                             fields.push_back(arrow::field(
                                 field_name, arrow::list(arrow::list(
@@ -92,7 +82,7 @@ std::vector<std::shared_ptr<arrow::Field>> columns_from_json(
                         }
                     } else if (value_type2 == "struct") {
                         auto struct_fields =
-                            fields_from_json(jcontains2, field_name);
+                            columns_from_json(jcontains2, field_name);
                         auto end_list_type = arrow::struct_(struct_fields);
                         fields.push_back(arrow::field(
                             field_name,
@@ -105,7 +95,7 @@ std::vector<std::shared_ptr<arrow::Field>> columns_from_json(
                     }
                 } else if (value_type == "struct") {
                     auto struct_fields =
-                        fields_from_json(jcontains, field_name);
+                        columns_from_json(jcontains, field_name);
                     auto end_list_type = arrow::struct_(struct_fields);
                     fields.push_back(
                         arrow::field(field_name, arrow::list(end_list_type)));
@@ -116,7 +106,7 @@ std::vector<std::shared_ptr<arrow::Field>> columns_from_json(
                 }
             }  // list
             else if (field_type == "struct") {
-                auto struct_fields = fields_from_json(jfield, field_name);
+                auto struct_fields = columns_from_json(jfield, field_name);
                 fields.push_back(
                     arrow::field(field_name, arrow::struct_(struct_fields)));
             } else {
@@ -128,120 +118,10 @@ std::vector<std::shared_ptr<arrow::Field>> columns_from_json(
     return fields;
 }
 
-std::map<std::string, arrow::ArrayBuilder*> makeVariableMap(
-    std::shared_ptr<ColumnWrapper> node) {
-    auto builder = node->builder();
-    std::map<std::string, arrow::ArrayBuilder*> out_map;
-    makeVariableMap(builder, node->name(), "", out_map);
-    return out_map;
-}
-
-void makeVariableMap(arrow::ArrayBuilder* builder, std::string parentname,
-                     std::string prefix,
-                     std::map<std::string, arrow::ArrayBuilder*>& out_map) {
-    auto type = builder->type();
-    //if (builder->num_children() > 0) {
-    if (type->id() == arrow::Type::STRUCT) {
-        std::string struct_builder_name = parentname;  // + "/";
-        out_map[struct_builder_name] = builder;
-        for (size_t ichild = 0; ichild < builder->num_children(); ichild++) {
-            auto field = type->field(ichild);
-            auto child_builder = builder->child_builder(ichild).get();
-            auto child_type = child_builder->type();
-            auto n_child_children = child_builder->num_children();
-            bool child_is_nested = (child_builder->num_children() > 0);
-            bool child_is_list = (child_type->id() == arrow::Type::LIST);
-            if (child_is_nested) {
-                std::string this_name =
-                    parentname + "." + field->name();  // + "/";
-                out_map[this_name] = child_builder;
-
-                std::string child_name = parentname + "." + field->name();
-                makeVariableMap(child_builder, child_name, field->name(),
-                                out_map);
-            } else if (child_is_list) {
-                arrow::ListBuilder* list_builder =
-                    static_cast<arrow::ListBuilder*>(child_builder);
-                auto item_builder = list_builder->value_builder();
-                std::string outname = parentname + "." + field->name();
-                std::string list_name = outname;  // + "/list";
-                std::string val_name = outname + "/item";
-                out_map[list_name] = child_builder;
-                out_map[val_name] =
-                    item_builder;  // dynamic_cast<arrow::ArrayBuilder*>(item_builder);
-
-                //if(item_builder->type()->id() == arrow::Type::LIST) {
-                //    auto item2_builder = dynamic_cast<arrow::ListBuilder*>(item_builder)->value_builder();
-                //    std::string val2_name = val_name + "/item";
-                //    out_map[val2_name] = item2_builder;
-
-                //    if(item2_builder->type()->id() == arrow::Type::LIST) {
-                //        auto item3_builder = dynamic_cast<arrow::ListBuilder*>(item_builder)->value_builder();
-                //        std::string val3_name = val_name + "/item";
-                //        out_map[val3_name] = item3_builder;
-                //    }
-                //}
-            } else {
-                std::string outname = parentname + "." + field->name();
-                out_map[outname] = child_builder;
-            }
-        }  // ichild
-    } else if (type->id() == arrow::Type::LIST) {
-        auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
-        std::string outname = parentname;
-        if (prefix != "") {
-            outname = prefix + "." + outname;
-        }
-        std::string list_name = outname;  // + "/list";
-        out_map[list_name] = list_builder;
-        std::string val_name = outname + "/item";
-        auto item_builder = list_builder->value_builder();
-        out_map[val_name] = item_builder;
-
-        //if(item_builder->type()->id() == arrow::Type::LIST) {
-        //    auto item2_builder = dynamic_cast<arrow::ListBuilder*>(item_builder)->value_builder();
-        //    std::string val2_name = val_name + "/item";
-        //    out_map[val2_name] = item2_builder;
-
-        //    if(item2_builder->type()->id() == arrow::Type::LIST) {
-        //        auto item3_builder = dynamic_cast<arrow::ListBuilder*>(item_builder)->value_builder();
-        //        std::string val3_name = val2_name + "/item";
-        //        out_map[val3_name] = item3_builder;
-        //    }
-        //}
-    } else {
-        std::string outname = parentname;
-        if (prefix != "") {
-            outname = prefix + "." + outname;
-        }
-        out_map[outname] = builder;
-    }
-}
-
-std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>>
-col_builder_map_from_fields(
-    const std::vector<std::shared_ptr<arrow::Field>>& fields) {
-    std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>> out;
-    for (auto field : fields) {
-        auto field_name = field->name();
-        auto field_type = field->type();
-        auto node = std::make_shared<ColumnWrapper>(field_name);
-        node->create_builder(field_type);
-        out[field_name] = makeVariableMap(node);
-
-        auto log = logging::get_logger();
-        log->debug("{0} - ============= {1} MAP ===========",
-                   __PRETTYFUNCTION__, field_name);
-        for (const auto& [key, val] : makeVariableMap(node)) {
-            log->debug("{0} - key = {1}, val type = {2}", __PRETTYFUNCTION__,
-                       key, val->type()->name());
-        }
-    }
-    return out;
-}
-
-std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>>
+std::pair<std::vector<std::string>, std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>>>
 fill_field_builder_map_from_columns(const std::vector<std::shared_ptr<arrow::Field>>& columns) {
+
+    auto log = logging::get_logger();
 
     //
     // we want to create an entry for each column and then
@@ -250,6 +130,7 @@ fill_field_builder_map_from_columns(const std::vector<std::shared_ptr<arrow::Fie
     //
 
     std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>> out;
+    std::vector<std::string> field_names;
 
     for( auto column : columns ) {
         auto column_name = column->name();
@@ -270,134 +151,229 @@ fill_field_builder_map_from_columns(const std::vector<std::shared_ptr<arrow::Fie
         // add the parent builder -- this is all that is needed for a column
         // that is filling only FillTypes::VALUE
         column_builders[column_name] = column_builder;
+        field_names.push_back(column_name);
 
 
         // keep track of the fill type for this column
         //parquetwriter::FillType fill_type = parquetwriter::FillType::VALUE;
 
-        parquetwriter::FillType column_fill_type = fill_type_from_column(column_builder);
+        parquetwriter::FillType column_fill_type = column_filltype_from_builder(column_builder, column_name);
 
         if(column_fill_type == parquetwriter::FillType::INVALID) {
             throw std::runtime_error("Bad column \"" + column_name + "\"");
         }
+
+        // get the names of any sub-struct typed fields of structures
+        if(column_fill_type == parquetwriter::FillType::STRUCT) {
+            auto [names, struct_type_builders] = struct_type_field_builders(column_builder, column_name);
+            for(size_t i = 0; i < struct_type_builders.size(); i++) {
+                std::stringstream sub_name;
+                sub_name << column_name << "." << names.at(i);
+                column_builders[sub_name.str()] = struct_type_builders.at(i);
+                field_names.push_back(sub_name.str());
+            }
+        }
+
+        out[column_name] = column_builders;
     } // column iterator
+    return std::make_pair(field_names, out);
 }
 
-parquetwriter::FillType fill_type_from_column(arrow::ArrayBuilder* column_builder) {
+parquetwriter::struct_t struct_from_data_buffer_element(const parquetwriter::types::buffer_t& data, const std::string& field_name) {
+    struct_t struct_data;
+    try {
+        struct_data = std::get<struct_t>(data);
+    } catch(std::exception& e) {
+        std::stringstream err;
+        err << "Unable to parse struct field data for field \"" << field_name << "\"";
+        logging::get_logger()->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::runtime_error("Invalid data shape");
+    }
+    return struct_data;
+}
 
-    parquetwriter::FillType fill_type = parquetwriter::FillType::INVALID;
+std::pair<std::vector<std::string>, std::vector<arrow::ArrayBuilder*>> 
+struct_type_field_builders(arrow::ArrayBuilder* builder, const std::string& column_name) {
+    if(builder->type()->id() != arrow::Type::STRUCT) {
+        std::stringstream err;
+        err << "Provided builder (name = \"" << column_name << "\") is not of STRUCT type, has type \"" << builder->type()->name() << "\"";
+        logging::get_logger()->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+        throw std::logic_error("Invalid builder type");
+    }
+    auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
 
-    std::string column_name = column_builder->name();
+    std::vector<arrow::ArrayBuilder*> out;
+    std::vector<std::string> names;
+    unsigned n_fields = struct_builder->num_children();
+    for(size_t ifield = 0; ifield < n_fields; ifield++) {
+        auto field_builder = struct_builder->child_builder(ifield).get();
+        auto field_type = field_builder->type();
+        std::string field_name = struct_builder->type()->field(ifield)->name();
+        bool is_list = field_type->id() == arrow::Type::LIST;
+        bool is_struct = field_type->id() == arrow::Type::STRUCT;
+
+        if(is_list) {
+            // check if struct_list
+            auto list_builder = dynamic_cast<arrow::ListBuilder*>(field_builder);
+            auto [depth, terminal_builder] = list_builder_description(list_builder);
+            if(terminal_builder->type()->id() == arrow::Type::STRUCT) {
+                names.push_back(field_name);
+                out.push_back(field_builder);
+            }
+        } else
+        if(is_struct) {
+            names.push_back(field_name);
+            out.push_back(field_builder);
+        }
+    } // ifield
+    return std::make_pair(names, out);
+}
+
+std::pair<unsigned, arrow::ArrayBuilder*> list_builder_description(
+        arrow::ListBuilder* builder) {
+
+    unsigned depth = 1;
+    auto list_builder = builder;
+    auto value_builder = list_builder->value_builder();
+
+    size_t unpack_count = 0;
+    while(value_builder->type()->id() == arrow::Type::LIST) {
+        if(unpack_count >= 3) break;
+        depth++;
+        list_builder = dynamic_cast<arrow::ListBuilder*>(value_builder);
+        value_builder = list_builder->value_builder();
+        unpack_count++;
+    }
+    return std::make_pair(depth, value_builder);
+}
+
+parquetwriter::FillType column_filltype_from_builder(arrow::ArrayBuilder* column_builder, const std::string& column_name) {
+
+    auto log = logging::get_logger();
+    //std::string column_name = column_builder->name();
 
     //
     // if there are any nested data structures, get the associated builders
     // 
-    bool is_list1d = column_builder->type()->id() == arrow::Type::LIST;
+    bool is_list = column_builder->type()->id() == arrow::Type::LIST;
     bool is_struct = column_builder->type()->id() == arrow::Type::STRUCT;
 
     // For FillTypes::VALUE_LIST_{1D,2D,3D} we do not need entries
     // for the value_builders since they can always be inferred from the
     // top level
 
-    if (is_list1d) {
-        auto value_builder = dynamic_cast<ListBuilder*>(column_builder);
-        bool is_list2d = value_builder->type()->id() == arrow::Type::LIST;
-        if(is_list2d) {
-            value_builder = dynamic_cast<ListBuilder*>(value_builder)->value_builder();
-            bool is_list3d = value_builder->type()->id() == arrow::Type::LIST;
-            if(is_list3d) {
-                //
-                // 3D list
-                //
+    if (is_list) {
 
-                // we do not support more than 3D list, so if this builder
-                // is of type list then throw an exception
-                value_builder = dynamic_cast<ListBuilder*>(value_builder)->value_builder();
-                bool is_list4d = value_builder->type()->id() == arrow::Type::LIST;
-                if(is_list4d) {
-                    std::stringstream err;
-                    err << "List depth >3 not supported, bad column \"" << column_name << "\"";
-                    log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-                    throw std::runtime_error(err.str());
-                } // is_list4d
+        auto list_builder = dynamic_cast<arrow::ListBuilder*>(column_builder);
+        auto [depth, terminal_builder] = list_builder_description(list_builder);
 
-                // check if struct_list
-                bool is_struct_list3d = value_builder->type()->id() == arrow::Type::STRUCT;
-                if(is_struct_list3d) {
-                    auto struct_builder = dynamic_cast<arrow::StructBuilder*>(value_builder);
-                    bool valid_struct = validate_sub_struct_layout(struct_builder, column_name);
-                    if(!valid_struct) {
-                        throw std::runtime_error("Invalid layout for column \"" + column_name + "\"");
-                    }
-                    fill_type = parquetwriter::FillType::STRUCT_LIST_3D;
-                } else {
-                    fill_type = parquetwriter::FillType::VALUE_LIST_3D;
-                }
-            } // is_list3d
-            else {
-                //
-                // 2D list
-                //
+        if(terminal_builder->type()->id() == arrow::Type::LIST) {
+            std::stringstream err;
+            err << "List depth >3 not supported, bad column \"" << column_name << "\"";
+            logging::get_logger()->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+            return parquetwriter::FillType::INVALID;
+        }
 
-                // check if struct_list
-                bool is_struct_list2d = value_builder->type()->id() == arrow::Type::STRUCT;
-                if(is_struct_list2d) {
-                    auto struct_builder = dynamic_cast<arrow::StructBuilder*>(value_builder);
-                    bool valid_struct = validate_sub_struct_layout(struct_builder, column_name);
-                    if(!valid_struct) {
-                        throw std::runtime_error("Invalid layout for column \"" + column_name + "\"");
-                    }
-                    fill_type = parquetwriter::FillType::STRUCT_LIST_2D;
-                } else {
-                    fill_type = parquetwriter::FillType::VALUE_LIST_2D;
-                }
+        //
+        // either a struct_list or value_list 
+        //
+        if(terminal_builder->type()->id() == arrow::Type::STRUCT) {
+            // enforce that the structs contained in a struct_list column
+            // do not have fields that are themselves structs or struct-lists
+            auto struct_builder = dynamic_cast<arrow::StructBuilder*>(terminal_builder);
+            if(!struct_builder) {
+                std::stringstream err;
+                err << "FillType for STRUCT_LIST did not have terminal builder of type STRUCT";
+                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                throw std::logic_error("Bad column");
+            }
+            if(!valid_sub_struct_layout(struct_builder, column_name)) {
+                std::stringstream err;
+                err << "Invalid layout for column \"" << column_name << "\"";
+                logging::get_logger()->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                return parquetwriter::FillType::INVALID;
             }
 
-        } // is_list2d
-        else {
+            switch(depth) {
+                case 1 :
+                    return parquetwriter::FillType::STRUCT_LIST_1D;
+                    break;
+                case 2 :
+                    return parquetwriter::FillType::STRUCT_LIST_2D;
+                    break;
+                case 3 :
+                    return parquetwriter::FillType::STRUCT_LIST_3D;
+                    break;
+                default :
+                    return parquetwriter::FillType::INVALID;
+                    break;
+            } // switch
+        } else {
 
-            //
-            // 1D list
-            //
-
-            // check if struct_list
-            bool is_struct_list1d = value_builder->type()->id() == arrow::Type::STRUCT;
-            if(is_struct_list1d) {
-                auto struct_builder = dynamic_cast<arrow::StructBuilder*>(value_builder);
-                bool valid_struct = validate_sub_struct_layout(struct_builder, column_name);
-                if(!valid_struct) {
-                    throw std::runtime_error("Invalid layout for column \"" + column_name + "\"");
-                }
-                fill_type = parquetwriter::FillType::STRUCT_LIST_1D;
-            } else {
-                // list of values
-                fill_type = parquetwriter::FillType::VALUE_LIST_1D;
-            }
-        } // !is_list2d
-    } // is_list1d
-    else if(is_struct) {
-
+            switch(depth) {
+                case 1 :
+                    return parquetwriter::FillType::VALUE_LIST_1D;
+                    break;
+                case 2 :
+                    return parquetwriter::FillType::VALUE_LIST_2D;
+                    break;
+                case 3 :
+                    return parquetwriter::FillType::VALUE_LIST_3D;
+                    break;
+                default :
+                    return parquetwriter::FillType::INVALID;
+                    break;
+            } // switch
+        }
+    } else
+    if (is_struct) {
         auto struct_builder = dynamic_cast<arrow::StructBuilder*>(column_builder);
         unsigned number_of_fields = struct_builder->num_children();
         for(size_t ichild = 0; ichild < number_of_fields; ichild++) {
-            auto child = struct_builder->child_builder(ichild).get();
-            if(child->type()->id() == arrow::Type::STRUCT) {
+            auto child_builder = struct_builder->child_builder(ichild).get();
+            std::string field_name = struct_builder->type()->field(ichild)->name();
+            if(child_builder->type()->id() == arrow::Type::STRUCT) {
                 // no sub-structs that have fields of type struct
-            } else if(child->type()->id() == arrow::Type::LIST) {
+                auto sub_struct_builder = dynamic_cast<arrow::StructBuilder*>(child_builder);
+                if(!valid_sub_struct_layout(sub_struct_builder, column_name)) {
+                    std::stringstream err;
+                    err << "Invalid layout for column \"" << column_name  << "\"";
+                    logging::get_logger()->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                    return parquetwriter::FillType::INVALID;
+                }
+            } else if(child_builder->type()->id() == arrow::Type::LIST) {
                 // no sub-struct-lists
+                auto sub_list_builder = dynamic_cast<arrow::ListBuilder*>(child_builder);
+                auto [sub_list_depth, sub_list_terminal_builder] = list_builder_description(sub_list_builder);
+
+                // check dimension
+                if(sub_list_terminal_builder->type()->id() == arrow::Type::LIST) {
+                    std::stringstream err;
+                    err << "List depth >3 not supported for list field \"" << field_name << "\" of struct column \"" << column_name << "\"";
+                    logging::get_logger()->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                    return parquetwriter::FillType::INVALID;
+                } else
+                if(sub_list_terminal_builder->type()->id() == arrow::Type::STRUCT) {
+                    // check that sub-structs are "flat"
+                    auto sub_struct_builder = dynamic_cast<arrow::StructBuilder*>(sub_list_terminal_builder);
+                    if(!valid_sub_struct_layout(sub_struct_builder, column_name)) {
+                        std::stringstream err;
+                        err << "Invalid layout for field \"" << field_name << "\" of struct column \"" << column_name << "\"";
+                        logging::get_logger()->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                        return parquetwriter::FillType::INVALID;
+                    }
+                }
             }
-        } // ichild
-        fill_type = parquetwriter::FillType::STRUCT;
-    } else {
-
-        fill_type = parquetwriter::FillType::VALUE;
-    }
-
-    return fill_type;
+        }
+        return parquetwriter::FillType::STRUCT;
+    } // is_struct
+    return parquetwriter::FillType::VALUE;
 }
 
-bool validate_sub_struct_layout(arrow::StructBuilder* struct_builder
+bool valid_sub_struct_layout(arrow::StructBuilder* struct_builder,
         const std::string& parent_column_name) {
+
+    auto log = logging::get_logger();
 
     //
     // any struct type that is itself a child field of some nested type
@@ -407,7 +383,7 @@ bool validate_sub_struct_layout(arrow::StructBuilder* struct_builder
     unsigned total_number_of_fields = struct_builder->num_children();
     for(size_t ichild = 0; ichild < total_number_of_fields; ichild++) {
         auto child_field_builder = struct_builder->child_builder(ichild).get();
-        auto child_field_name = child_field_builder->name();
+        auto child_field_name = struct_builder->type()->field(ichild)->name();
 
         //
         // no sub struct allowed
@@ -418,7 +394,7 @@ bool validate_sub_struct_layout(arrow::StructBuilder* struct_builder
             //
             std::stringstream err;
             err << "Child struct of column \"" << parent_column_name << "\" has invalid field \"" << child_field_name << "\" with type \"struct\"";
-            log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+            logging::get_logger()->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
             return false;
         } // is_struct
         else if(child_field_builder->type()->id() == arrow::Type::LIST) {
@@ -440,7 +416,7 @@ bool validate_sub_struct_layout(arrow::StructBuilder* struct_builder
             if(value_builder->type()->id() == arrow::Type::STRUCT) {
                 std::stringstream err;
                 err << "Child struct of column \"" << parent_column_name << "\"  has invalid field \"" << child_field_name << "\" with type \"struct list\"";
-                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
+                logging::get_logger()->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
                 return false;
             }
         } // is_list

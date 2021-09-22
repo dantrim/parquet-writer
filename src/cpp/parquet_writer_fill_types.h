@@ -1,6 +1,8 @@
 #ifndef PARQUETWRITER_FILL_TYPES_H
 #define PARQUETWRITER_FILL_TYPES_H
 
+#include <string>
+
 namespace parquetwriter {
 
     // supported types for a given column in the
@@ -17,6 +19,7 @@ namespace parquetwriter {
         ,INVALID
     }; // enum FillTypes
 
+    std::string filltype_to_string(FillType fill_type);
 }; // namespace parquetwriter
 
 #endif

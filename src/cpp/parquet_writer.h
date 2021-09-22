@@ -2,6 +2,8 @@
 
 // parquetwriter
 #include "parquet_writer_types.h"
+#include "parquet_writer_fill_types.h"
+#include "logging.h"
 namespace spdlog {
 class logger;
 }
@@ -94,6 +96,7 @@ class Writer {
     std::map<std::string, uint64_t> _column_fill_map;
     std::map<std::string, uint64_t> _expected_field_fill_map;
     std::vector<std::string> _expected_fields_to_fill;
+    std::map<std::string, FillType> _expected_fields_filltype_map;
     uint64_t _total_fills_required_per_row;
     uint32_t _row_length;
 
@@ -110,7 +113,7 @@ class Writer {
 
     // map of each column's builders
     std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>>
-        _col_builder_map;
+        _column_builder_map;
 
     //
     // methods
@@ -118,7 +121,10 @@ class Writer {
     void update_output_stream();
     void new_file();
 
-    void fill_struct(arrow::StructBuilder* builder, struct_t data, const std::string& field_path = "");
+    void fill_value(const std::string& field_name, arrow::ArrayBuilder* builder, const std::vector<types::buffer_t>& data_buffer);
+    void fill_value_list(const std::string& field_name, arrow::ArrayBuilder* builder, const std::vector<types::buffer_t>& data_buffer);
+    void fill_struct(const std::string& field_name, arrow::ArrayBuilder* builder, const std::vector<types::buffer_t>& data_buffer);
+    void fill_struct_list(const std::string& field_name, arrow::ArrayBuilder* builder, const std::vector<types::buffer_t>& data_buffer);
     bool row_complete();
 
     void flush();

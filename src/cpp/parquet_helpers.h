@@ -1,8 +1,8 @@
 #pragma once
 
 #include "parquet_writer_fill_types.h"
+#include "parquet_writer_types.h"
 
-#include <iostream>
 // std/stl
 #include <map>
 #include <memory>
@@ -29,46 +29,31 @@
         PARQUET_THROW_NOT_OK(vb->AppendValues(val));                    \
     } else
 
-        //auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(LIST_BUILDER); \
-
 // macro for filling 2d lists (vector<vector<...>>)
 #define INNERLIST_APPEND(LIST_BUILDER, TEMPLATE_TYPE, TYPE_CLASS, CPP_CLASS) \
     if constexpr (std::is_same<TEMPLATE_TYPE, CPP_CLASS>::value) {           \
-        auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(LIST_BUILDER); \
+        auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(                 \
+            LIST_BUILDER->value_builder());                                  \
         for(size_t i = 0; i < val.size(); i++) { \
+            PARQUET_THROW_NOT_OK(LIST_BUILDER->Append()); \
             PARQUET_THROW_NOT_OK(vb->AppendValues(val.at(i))); \
         } \
     } else
-
-        //for (auto v : val) {                                                 \
-        //    PARQUET_THROW_NOT_OK(LIST_BUILDER->Append());                    \
-        //    PARQUET_THROW_NOT_OK(vb->AppendValues(v));                       \
-        //}                                                                    \
-
-        //auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(                 \
-        //    LIST_BUILDER->value_builder());                                  \
 
 // macro for filling 3d lists (vector<vector<vector<...>>>)
 #define INNERINNERLIST_APPEND(LIST_BUILDER, INNERLIST_BUILDER, TEMPLATE_TYPE, \
                               TYPE_CLASS, CPP_CLASS)                          \
     if constexpr (std::is_same<TEMPLATE_TYPE, CPP_CLASS>::value) {            \
-        auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(LIST_BUILDER); \
-        for(size_t i = 0; i < val.size(); i++) { \
-            for(size_t j = 0; j < val.at(i).size(); j++) { \
-                PARQUET_THROW_NOT_OK(vb->AppendValues(val.at(i).at(j))); \
-            } \
-        } \
+        auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(                  \
+            INNERLIST_BUILDER->value_builder());                              \
+        for (auto v : val) {                                                  \
+            PARQUET_THROW_NOT_OK(LIST_BUILDER->Append());                     \
+            for (auto v2 : v) {                                               \
+                PARQUET_THROW_NOT_OK(INNERLIST_BUILDER->Append());            \
+                PARQUET_THROW_NOT_OK(vb->AppendValues(v2));                   \
+            }                                                                 \
+        }                                                                     \
     } else
-
-        //auto vb = dynamic_cast<arrow::TYPE_CLASS##Builder*>(                  \
-        //    INNERLIST_BUILDER->value_builder());                              \
-        //for (auto v : val) {                                                  \
-        //    PARQUET_THROW_NOT_OK(LIST_BUILDER->Append());                     \
-        //    for (auto v2 : v) {                                               \
-        //        PARQUET_THROW_NOT_OK(INNERLIST_BUILDER->Append());            \
-        //        PARQUET_THROW_NOT_OK(vb->AppendValues(v2));                   \
-        //    }                                                                 \
-        //}                                                                     \
 
 namespace parquetwriter {
 namespace helpers {
@@ -112,43 +97,24 @@ static std::map<std::string, TypeInitFunc> const type_init_map = {
 
 using nlohmann::json;
 
-class ColumnWrapper {
- public:
-    ColumnWrapper(std::string name);
-    ~ColumnWrapper() = default;
-    arrow::ArrayBuilder* builder() { return _builder; }
-    const std::string name() { return _name; }
-    void create_builder(std::shared_ptr<arrow::DataType> type);
-    // void finish(std::vector<std::shared_ptr<arrow::Array>> array_vec);
-
- private:
-    std::string _name;
-    arrow::ArrayBuilder* _builder;
-
-};  // class Node
-
 std::shared_ptr<arrow::DataType> datatype_from_string(
     const std::string& type_string);
 std::vector<std::shared_ptr<arrow::Field>> columns_from_json(
     const json& jlayout, const std::string& current_node = "");
 
-std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>>
-col_builder_map_from_fields(
-    const std::vector<std::shared_ptr<arrow::Field>>& fields);
-
-std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>>
+std::pair<std::vector<std::string>,
+std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>>>
 fill_field_builder_map_from_columns(
         const std::vector<std::shared_ptr<arrow::Field>>& columns);
 
-parquetwriter::FillType fill_type_from_column_builder(arrow::ArrayBuilder* column_builder);
+parquetwriter::FillType column_filltype_from_builder(arrow::ArrayBuilder* column_builder, const std::string& column_name);
 
-bool validate_sub_struct_layout(arrow::StructBuilder* struct_builder, const std::string& parent_column_name);
+bool valid_sub_struct_layout(arrow::StructBuilder* struct_builder, const std::string& parent_column_name);
+std::pair<unsigned, arrow::ArrayBuilder*> list_builder_description(arrow::ListBuilder* list_builder);
+std::pair<std::vector<std::string>, std::vector<arrow::ArrayBuilder*>> 
+struct_type_field_builders(arrow::ArrayBuilder* builder, const std::string& column_name);
 
-std::map<std::string, arrow::ArrayBuilder*> makeVariableMap(
-    std::shared_ptr<ColumnWrapper> node);
-void makeVariableMap(arrow::ArrayBuilder* builder, std::string parentname,
-                     std::string prefix,
-                     std::map<std::string, arrow::ArrayBuilder*>& out_map);
+parquetwriter::struct_t struct_from_data_buffer_element(const parquetwriter::types::buffer_t& data, const std::string& field_name);
 
 std::pair<unsigned, unsigned> field_nums_from_struct(
     const arrow::StructBuilder* builder, const std::string& column_name);
@@ -208,13 +174,8 @@ void fill(T val, arrow::ArrayBuilder* builder) {
         auto vb = dynamic_cast<arrow::DoubleBuilder*>(builder);
         PARQUET_THROW_NOT_OK(vb->Append(val));
     } else if constexpr (is_std_vector<T>::value) {
-        std::cout << "HELPERS FILL " << __LINE__ << std::endl;
-        //auto list_builder = builder;
         auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
-        //std::cout << "HELPERS FILL " << __LINE__ << ", list_builder = " << list_builder << ", builder type = " << builder->type()->name() << std::endl;
-        std::cout << "HELPERS FILL " << __LINE__ << " builder type = " << builder->type()->name() << std::endl;
         PARQUET_THROW_NOT_OK(list_builder->Append());
-        std::cout << "HELPERS FILL " << __LINE__ << std::endl;
         typedef typename getType<T>::type InnerType;
         LIST_APPEND(list_builder, InnerType, Boolean, bool)
         LIST_APPEND(list_builder, InnerType, UInt8, uint8_t)
@@ -228,9 +189,8 @@ void fill(T val, arrow::ArrayBuilder* builder) {
         LIST_APPEND(list_builder, InnerType, Float, float)
         LIST_APPEND(list_builder, InnerType, Double, double)
         if constexpr (is_std_vector<InnerType>::value) {
-            auto list2_builder = builder;
-            //auto list2_builder = dynamic_cast<arrow::ListBuilder*>(
-            //    list_builder->value_builder());
+            auto list2_builder = dynamic_cast<arrow::ListBuilder*>(
+                list_builder->value_builder());
             typedef typename getType<InnerType>::type InnerType2;
             INNERLIST_APPEND(list2_builder, InnerType2, Boolean, bool)
             INNERLIST_APPEND(list2_builder, InnerType2, UInt8, uint8_t)
@@ -244,9 +204,8 @@ void fill(T val, arrow::ArrayBuilder* builder) {
             INNERLIST_APPEND(list2_builder, InnerType2, Float, float)
             INNERLIST_APPEND(list2_builder, InnerType2, Double, double)
             if constexpr (is_std_vector<InnerType2>::value) {
-                //auto list3_builder = dynamic_cast<arrow::ListBuilder*>(
-                //    list2_builder->value_builder());
-                auto list3_builder = builder;
+                auto list3_builder = dynamic_cast<arrow::ListBuilder*>(
+                    list2_builder->value_builder());
                 typedef typename getType<InnerType2>::type InnerType3;
                 INNERINNERLIST_APPEND(list2_builder, list3_builder, InnerType3,
                                       Boolean, bool)
