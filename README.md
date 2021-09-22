@@ -102,6 +102,8 @@ This constraint on the level of nesting of sub-`struct`-type fields is for simpl
 Additionally, pretty much any complex data structure can be made to fit
 this constraint through clever flattening of the more deeply nested sub-`struct`-type fields.
 
+Examples illustrating these constraints are provided in the [Examples section](#examples).
+
 ## Parquet File Layout Specification
 
 Specifying the desired layout of a given Parquet file
