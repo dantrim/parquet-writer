@@ -10,19 +10,34 @@
 
 // arrow/parquet
 
-#define THROW_FOR_INVALID_TYPE(FIELDNAME, ARROWTYPE, ARRAYBUILDER)             \
+#define THROW_FOR_INVALID_TYPE(FIELDNAME, ARROWTYPE, ARRAYBUILDER, LISTDEPTH)  \
     if (ARRAYBUILDER->type()->id() != arrow::Type::ARROWTYPE) {                \
-        if (ARRAYBUILDER->type()->id() == arrow::Type::LIST) {                 \
-            auto list_builder =                                                \
-                dynamic_cast<arrow::ListBuilder*>(ARRAYBUILDER);               \
-            auto [depth, builder] =                                            \
-                helpers::list_builder_description(list_builder);               \
-            if (builder->type()->id() != arrow::Type::ARROWTYPE) {             \
+        if (ARRAYBUILDER->type()->id() == arrow::Type::LIST ||                 \
+            LISTDEPTH > 0) {                                                   \
+            arrow::ArrayBuilder* expected_builder = nullptr;                   \
+            unsigned depth = 0;                                                \
+            if (ARRAYBUILDER->type()->id() == arrow::Type::LIST) {             \
+                auto list_builder =                                            \
+                    dynamic_cast<arrow::ListBuilder*>(ARRAYBUILDER);           \
+                std::tie(depth, expected_builder) =                            \
+                    helpers::list_builder_description(list_builder);           \
+            } else {                                                           \
+                expected_builder = ARRAYBUILDER;                               \
+            }                                                                  \
+            if (expected_builder->type()->id() != arrow::Type::ARROWTYPE ||    \
+                depth != LISTDEPTH) {                                          \
+                std::string expect_type =                                      \
+                    (depth > 0 ? "list" + std::to_string(depth) + "d[" +       \
+                                     expected_builder->type()->name() + "]"    \
+                               : ARRAYBUILDER->type()->name());                \
+                std::string got_type =                                         \
+                    (LISTDEPTH > 0 ? "list" + std::to_string(LISTDEPTH) +      \
+                                         "d[" + #ARROWTYPE + "]"               \
+                                   : #ARROWTYPE);                              \
                 throw parquetwriter::data_type_exception(                      \
                     "Invalid data type provided for column/field \"" +         \
-                    FIELDNAME + "\", expect: \"" +                             \
-                    ARRAYBUILDER->type()->name() + "\", got: \"" +             \
-                    #ARROWTYPE + "\"");                                        \
+                    FIELDNAME + "\", expect: \"" + expect_type +               \
+                    "\", got: \"" + got_type + "\"");                          \
             }                                                                  \
         } else {                                                               \
             throw parquetwriter::data_type_exception(                          \
@@ -308,167 +323,167 @@ void Writer::fill_value(const std::string& field_name,
     auto data = data_buffer.at(0);
     if (auto val = std::get_if<types::buffer_value_t>(&data)) {
         if (auto v = std::get_if<bool>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, BOOL, builder)
+            THROW_FOR_INVALID_TYPE(field_name, BOOL, builder, 0)
             helpers::fill<bool>(*v, builder);
         } else if (auto v = std::get_if<uint8_t>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT8, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT8, builder, 0)
             helpers::fill<uint8_t>(*v, builder);
         } else if (auto v = std::get_if<uint16_t>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT16, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT16, builder, 0)
             helpers::fill<uint16_t>(*v, builder);
         } else if (auto v = std::get_if<uint32_t>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT32, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT32, builder, 0)
             helpers::fill<uint32_t>(*v, builder);
         } else if (auto v = std::get_if<uint64_t>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT64, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT64, builder, 0)
             helpers::fill<uint64_t>(*v, builder);
         } else if (auto v = std::get_if<int8_t>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT8, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT8, builder, 0)
             helpers::fill<int8_t>(*v, builder);
         } else if (auto v = std::get_if<int16_t>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT16, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT16, builder, 0)
             helpers::fill<int16_t>(*v, builder);
         } else if (auto v = std::get_if<int32_t>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT32, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT32, builder, 0)
             helpers::fill<int32_t>(*v, builder);
         } else if (auto v = std::get_if<int64_t>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT64, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT64, builder, 0)
             helpers::fill<int64_t>(*v, builder);
         } else if (auto v = std::get_if<float>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, FLOAT, builder)
+            THROW_FOR_INVALID_TYPE(field_name, FLOAT, builder, 0)
             helpers::fill<float>(*v, builder);
         } else if (auto v = std::get_if<double>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, DOUBLE, builder)
+            THROW_FOR_INVALID_TYPE(field_name, DOUBLE, builder, 0)
             helpers::fill<double>(*v, builder);
         } else if (auto v = std::get_if<std::vector<bool>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, BOOL, builder)
+            THROW_FOR_INVALID_TYPE(field_name, BOOL, builder, 1)
             helpers::fill<std::vector<bool>>(*v, builder);
         } else if (auto v = std::get_if<std::vector<uint8_t>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT8, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT8, builder, 1)
             helpers::fill<std::vector<uint8_t>>(*v, builder);
         } else if (auto v = std::get_if<std::vector<uint16_t>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT16, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT16, builder, 1)
             helpers::fill<std::vector<uint16_t>>(*v, builder);
         } else if (auto v = std::get_if<std::vector<uint32_t>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT32, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT32, builder, 1)
             helpers::fill<std::vector<uint32_t>>(*v, builder);
         } else if (auto v = std::get_if<std::vector<uint64_t>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT64, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT64, builder, 1)
             helpers::fill<std::vector<uint64_t>>(*v, builder);
         } else if (auto v = std::get_if<std::vector<int8_t>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT8, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT8, builder, 1)
             helpers::fill<std::vector<int8_t>>(*v, builder);
         } else if (auto v = std::get_if<std::vector<int16_t>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT16, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT16, builder, 1)
             helpers::fill<std::vector<int16_t>>(*v, builder);
         } else if (auto v = std::get_if<std::vector<int32_t>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT32, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT32, builder, 1)
             helpers::fill<std::vector<int32_t>>(*v, builder);
         } else if (auto v = std::get_if<std::vector<int64_t>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT64, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT64, builder, 1)
             helpers::fill<std::vector<int64_t>>(*v, builder);
         } else if (auto v = std::get_if<std::vector<float>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, FLOAT, builder)
+            THROW_FOR_INVALID_TYPE(field_name, FLOAT, builder, 1)
             helpers::fill<std::vector<float>>(*v, builder);
         } else if (auto v = std::get_if<std::vector<double>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, DOUBLE, builder)
+            THROW_FOR_INVALID_TYPE(field_name, DOUBLE, builder, 1)
             helpers::fill<std::vector<double>>(*v, builder);
         } else if (auto v = std::get_if<std::vector<std::vector<bool>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, BOOL, builder)
+            THROW_FOR_INVALID_TYPE(field_name, BOOL, builder, 2)
             helpers::fill<std::vector<std::vector<bool>>>(*v, builder);
         } else if (auto v =
                        std::get_if<std::vector<std::vector<uint8_t>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT8, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT8, builder, 2)
             helpers::fill<std::vector<std::vector<uint8_t>>>(*v, builder);
         } else if (auto v =
                        std::get_if<std::vector<std::vector<uint16_t>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT16, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT16, builder, 2)
             helpers::fill<std::vector<std::vector<uint16_t>>>(*v, builder);
         } else if (auto v =
                        std::get_if<std::vector<std::vector<uint32_t>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT32, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT32, builder, 2)
             helpers::fill<std::vector<std::vector<uint32_t>>>(*v, builder);
         } else if (auto v =
                        std::get_if<std::vector<std::vector<uint64_t>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT64, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT64, builder, 2)
             helpers::fill<std::vector<std::vector<uint64_t>>>(*v, builder);
         } else if (auto v =
                        std::get_if<std::vector<std::vector<int8_t>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT8, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT8, builder, 2)
             helpers::fill<std::vector<std::vector<int8_t>>>(*v, builder);
         } else if (auto v =
                        std::get_if<std::vector<std::vector<int16_t>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT16, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT16, builder, 2)
             helpers::fill<std::vector<std::vector<int16_t>>>(*v, builder);
         } else if (auto v =
                        std::get_if<std::vector<std::vector<int32_t>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT32, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT32, builder, 2)
             helpers::fill<std::vector<std::vector<int32_t>>>(*v, builder);
         } else if (auto v =
                        std::get_if<std::vector<std::vector<int64_t>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT64, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT64, builder, 2)
             helpers::fill<std::vector<std::vector<int64_t>>>(*v, builder);
         } else if (auto v = std::get_if<std::vector<std::vector<float>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, FLOAT, builder)
+            THROW_FOR_INVALID_TYPE(field_name, FLOAT, builder, 2)
             helpers::fill<std::vector<std::vector<float>>>(*v, builder);
         } else if (auto v =
                        std::get_if<std::vector<std::vector<double>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, DOUBLE, builder)
+            THROW_FOR_INVALID_TYPE(field_name, DOUBLE, builder, 2)
             helpers::fill<std::vector<std::vector<double>>>(*v, builder);
         } else if (auto v =
                        std::get_if<std::vector<std::vector<std::vector<bool>>>>(
                            val)) {
-            THROW_FOR_INVALID_TYPE(field_name, BOOL, builder)
+            THROW_FOR_INVALID_TYPE(field_name, BOOL, builder, 3)
             helpers::fill<std::vector<std::vector<std::vector<bool>>>>(*v,
                                                                        builder);
         } else if (auto v = std::get_if<
                        std::vector<std::vector<std::vector<uint8_t>>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT8, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT8, builder, 3)
             helpers::fill<std::vector<std::vector<std::vector<uint8_t>>>>(
                 *v, builder);
         } else if (auto v = std::get_if<
                        std::vector<std::vector<std::vector<uint16_t>>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT16, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT16, builder, 3)
             helpers::fill<std::vector<std::vector<std::vector<uint16_t>>>>(
                 *v, builder);
         } else if (auto v = std::get_if<
                        std::vector<std::vector<std::vector<uint32_t>>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT32, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT32, builder, 3)
             helpers::fill<std::vector<std::vector<std::vector<uint32_t>>>>(
                 *v, builder);
         } else if (auto v = std::get_if<
                        std::vector<std::vector<std::vector<uint64_t>>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, UINT64, builder)
+            THROW_FOR_INVALID_TYPE(field_name, UINT64, builder, 3)
             helpers::fill<std::vector<std::vector<std::vector<uint64_t>>>>(
                 *v, builder);
         } else if (auto v = std::get_if<
                        std::vector<std::vector<std::vector<int8_t>>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT8, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT8, builder, 3)
             helpers::fill<std::vector<std::vector<std::vector<int8_t>>>>(
                 *v, builder);
         } else if (auto v = std::get_if<
                        std::vector<std::vector<std::vector<int16_t>>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT16, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT16, builder, 3)
             helpers::fill<std::vector<std::vector<std::vector<int16_t>>>>(
                 *v, builder);
         } else if (auto v = std::get_if<
                        std::vector<std::vector<std::vector<int32_t>>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT32, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT32, builder, 3)
             helpers::fill<std::vector<std::vector<std::vector<int32_t>>>>(
                 *v, builder);
         } else if (auto v = std::get_if<
                        std::vector<std::vector<std::vector<int64_t>>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, INT64, builder)
+            THROW_FOR_INVALID_TYPE(field_name, INT64, builder, 3)
             helpers::fill<std::vector<std::vector<std::vector<int64_t>>>>(
                 *v, builder);
         } else if (auto v = std::get_if<
                        std::vector<std::vector<std::vector<float>>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, FLOAT, builder)
+            THROW_FOR_INVALID_TYPE(field_name, FLOAT, builder, 3)
             helpers::fill<std::vector<std::vector<std::vector<float>>>>(
                 *v, builder);
         } else if (auto v = std::get_if<
                        std::vector<std::vector<std::vector<double>>>>(val)) {
-            THROW_FOR_INVALID_TYPE(field_name, DOUBLE, builder)
+            THROW_FOR_INVALID_TYPE(field_name, DOUBLE, builder, 3)
             helpers::fill<std::vector<std::vector<std::vector<double>>>>(
                 *v, builder);
         } else {
