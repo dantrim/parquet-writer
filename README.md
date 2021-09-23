@@ -148,17 +148,9 @@ and a three-dimensional variable-lengthed list column named `my_3d_list` holding
 auto file_layout = R"(
   {
     "fields": [
-      {"name": "my_1d_list", "type": "list", "contains": {"type": "float"}},
-      {"name": "my_2d_list",
-                "type": "list", "contains":
-                        {"type": "list", "contains": {"type": "uint32"}}
-      },
-      {"name": "my_3d_list",
-                "type": "list", "contains":
-                       {"type": "list", "contains":
-                                {"type": "list", "contains": {"type": "double"}}
-                       }
-      }   
+      {"name": "my_1d_list", "type": "list1d", "contains": {"type": "float"}},
+      {"name": "my_2d_list", "type": "list2d", "contains": {"type": "uint32"}},
+      {"name": "my_3d_list", "type": "list3d", "contains": {"type": "double"}} 
     ]
   } 
 )"_json;
@@ -208,7 +200,7 @@ auto file_layout = R"(
                                   "fields": [
                                     {"name": "field0", "type": "int32"},
                                     {"name": "field1", "type": "float"},
-                                    {"name": "field2", "type": "list", "contains": {"type": "float"}}
+                                    {"name": "field2", "type": "list1d", "contains": {"type": "float"}}
                                   ]}
   ]
 )"_json;
