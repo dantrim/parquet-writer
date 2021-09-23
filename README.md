@@ -66,24 +66,24 @@ writer.finish();
 The primary data types that can be written to output Parquet files
 by the `parquet-writer` library are summarized in the table below,
 
-| Type | Corresponding `parquet-writer` name |
-| --- | --- |
-| **Value Types** | |
-| Logical types | `bool` |
-| Signed integers | `int8`, `int16`, `int32`, `int64` |
-| Unsigned integers | `uint8`, `uint16`, `uint32`, `uint64` |
-| Floating Point | `float` (32-bit precision)|
-|                    | `double` (64-bit precision) |
-| **List Types** | |
-| 1-dimensional, `list[<value_type>]` | `list1d` |
-| 2-dimensional, `list[list[<value_type>]]` | `list2d` |
-| 3-dimensional, `list[list[list[<value_type>]]]` | `list3d` |
-| **Struct Type** | |
-| Struct, `struct{<fields>}` | `struct` |
+| Type | Corresponding `parquet-writer` name | Notes |
+| --- | --- | --- |
+| **Value Types** | | |
+| Logical types | `bool` | |
+| Signed integers | `int8`, `int16`, `int32`, `int64` | |
+| Unsigned integers | `uint8`, `uint16`, `uint32`, `uint64` | |
+| Floating Point | `float` (32-bit precision)| |
+|                    | `double` (64-bit precision) | |
+| **List Types** | | |
+| 1-dimensional, `list[<value_type>]` | `list1d` | |
+| 2-dimensional, `list[list[<value_type>]]` | `list2d` | |
+| 3-dimensional, `list[list[list[<value_type>]]]` | `list3d` | |
+| **Struct Type** | | |
+| Struct, `struct{<fields>}` | `struct` | `<fields>` cannot contain `struct`-typed fields that have `struct`-type fields|
 | **Struct List Types** | |
-| 1-dimensional, `list[struct{<fields>}]` | |
-| 2-dimensional, `list[list[struct{<fields>}]]` | |
-| 3-dimensional, `list[list[list[struct{<fields>}]]]` | |
+| 1-dimensional, `list[struct{<fields>}]` | | `<fields>` cannot contain `struct`-typed fields that have `struct`-type fields|
+| 2-dimensional, `list[list[struct{<fields>}]]` | |`<fields>` cannot contain `struct`-typed fields that have `struct`-type fields|
+| 3-dimensional, `list[list[list[struct{<fields>}]]]` | | `<fields>` cannot contain `struct`-typed fields that have `struct`-type fields|
 
 
 Where `struct{<fields>}` demarcates a data type comprised of any number
