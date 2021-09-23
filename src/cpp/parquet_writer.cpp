@@ -740,13 +740,12 @@ void Writer::append_empty_value(const std::string& field_path) {
             sub_field_name.find(sub_find.str()) != std::string::npos;
         if (is_sub_field_of_parent) {
             // this is a sub-field of the current parent field
-            // if(sub_field_count >= parent_count) {
-            if (sub_field_count != parent_count) {
+            if (!(parent_count >= sub_field_count)) {
                 throw parquetwriter::writer_exception(
                     "Cannot append empty value to column/field \"" +
                     field_path + "\": parent column/field (\"" +
                     parent_column_name +
-                    "\") fill count != child column/field (\"" + field_path +
+                    "\") fill count < child column/field (\"" + field_path +
                     "\") fill count (" + std::to_string(parent_count) +
                     " != " + std::to_string(sub_field_count) + ")");
             }
