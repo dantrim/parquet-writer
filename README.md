@@ -14,7 +14,7 @@ The `parquet-writer` library aims to provide support for:
   * Specifying the layout of Parquet files (what types of columns to store) via JSON
   * Storage for numeric data types and boolean values
   * Storage of one-, two-, and three-dimensional lists
-  * Storage of struct objects (think: `C` structs) with any number of arbitrarily typed fields
+  * Storage of struct objects (think: `C/C++` structs) with any number of arbitrarily typed fields
   * A simple interface for writing all data types to output Parquet files
 
 ## Basic Usage
@@ -66,24 +66,28 @@ writer.finish();
 The primary data types that can be written to output Parquet files
 by the `parquet-writer` library are summarized in the table below,
 
-| Type | Supported Types in `parquet-writer` |
+| Type | Corresponding `parquet-writer` name |
 | --- | --- |
-| **Logical types** | `bool` |
-| **Signed integers** | `int8`, `int16`, `int32`, `int64` |
-| **Unsigned integers** | `uint8`, `uint16`, `uint32`, `uint64` |
-| **Floating Point** | `float` (32-bit precision)|
+| **Value Types** | |
+| Logical types | `bool` |
+| Signed integers | `int8`, `int16`, `int32`, `int64` |
+| Unsigned integers | `uint8`, `uint16`, `uint32`, `uint64` |
+| Floating Point | `float` (32-bit precision)|
 |                    | `double` (64-bit precision) |
-| **Lists** | 1 dimensional: `list[<type>]` |
-|       | 2 dimensional: `list[list[<type>]]` |
-|       | 3 dimensional: `list[list[list[<type>]]]` |
-| **Structs** | `struct{<fields>}` |
-| **List of Structs** | 1 dimensional: `list[struct{<fields>}]` |
-|                 | 2 dimensional: `list[list[struct{<fields>}]` |
-|                 | 3 dimensional: `list[list[list[struct{<fields>}]` |
+| **List Types** | |
+| 1-dimensional, `list[<value_type>]` | `list1d` |
+| 2-dimensional, `list[list[<value_type>]]` | `list2d` |
+| 3-dimensional, `list[list[list[<value_type>]]]` | `list3d` |
+| **Struct Type** | |
+| Struct, `struct{<fields>}` | `struct` |
+| **Struct List Types** | |
+| 1-dimensional, `list[struct{<fields>}]` | |
+| 2-dimensional, `list[list[struct{<fields>}]]` | |
+| 3-dimensional, `list[list[list[struct{<fields>}]]]` | |
 
 
 Where `struct{<fields>}` demarcates a data type comprised of any number
-of arbitrarily-typed named-fields (think: C++ `struct`).
+of arbitrarily-typed named-fields (think: C/C++ `struct`).
 
 Fields of `struct` type can have fields that are basic value types
 (e.g. the integer, floating point, and logical data types)
