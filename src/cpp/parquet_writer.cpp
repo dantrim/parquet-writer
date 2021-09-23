@@ -630,7 +630,7 @@ void Writer::fill(const std::string& field_path,
     // get the parent column name (needed for cases in which this is a
     // sub-field)
     //
-    size_t pos_parent = field_path.find_first_of("/.");
+    size_t pos_parent = field_path.find_first_of(".");
     bool is_parent_path = false;
     std::string parent_column_name = field_path;
     if (pos_parent != std::string::npos) {
