@@ -1,6 +1,7 @@
 #include "parquet_writer.h"
 
 #include "parquet_helpers.h"
+#include "parquet_writer_exceptions.h"
 
 // std/stl
 #include <algorithm>
@@ -60,15 +61,13 @@ const std::string Writer::flushrule2str(const FlushRule& flush_rule) {
 }
 
 void Writer::set_layout(std::ifstream& infile) {
-    nlohmann::json jlayout;
     infile.seekg(0);
+    nlohmann::json jlayout;
     try {
         jlayout = nlohmann::json::parse(infile);
     } catch (std::exception& e) {
-        std::stringstream err;
-        err << "Failed to parse JSON from provided input filestream";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(e.what());
+        throw std::runtime_error("Failed to parse input field layout JSON: " +
+                                 std::string(e.what()));
     }
     this->set_layout(jlayout);
 }
@@ -78,10 +77,8 @@ void Writer::set_layout(const std::string& field_layout_json_str) {
     try {
         jlayout = nlohmann::json::parse(field_layout_json_str);
     } catch (std::exception& e) {
-        std::stringstream err;
-        err << "Failed to parse JSON from provided std::string";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(e.what());
+        throw std::runtime_error("Failed to parse input field layout JSON: " +
+                                 std::string(e.what()));
     }
     this->set_layout(jlayout);
 }
@@ -91,11 +88,8 @@ void Writer::set_layout(const nlohmann::json& field_layout) {
 
     _columns = helpers::columns_from_json(field_layout);
     if (_columns.size() == 0) {
-        std::stringstream err;
-        err << "No fields constructed from provided file layout";
-        log->error("{0} - {1}", __PRETTYFUNCTION__,
-                   "No fields constructed from provided file layout");
-        throw std::runtime_error(err.str());
+        throw parquetwriter::layout_exception(
+            "No fields constructed from provided layout");
     }
 
     _schema = arrow::schema(_columns);
@@ -144,10 +138,8 @@ void Writer::set_metadata(std::ifstream& infile) {
     try {
         _file_metadata = nlohmann::json::parse(infile);
     } catch (std::exception& e) {
-        std::stringstream err;
-        err << "Failed to parse JSON from provided filestream";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(e.what());
+        throw parquetwriter::layout_exception(
+            "Failed to parse input metadata JSON: " + std::string(e.what()));
     }
 
     if (_schema) {
@@ -160,10 +152,8 @@ void Writer::set_metadata(const std::string& metadata_str) {
     try {
         _file_metadata = nlohmann::json::parse(metadata_str);
     } catch (std::exception& e) {
-        std::stringstream err;
-        err << "Failed to parse JSON from provided std::string";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(e.what());
+        throw parquetwriter::layout_exception(
+            "Failed to parse input metadata JSON: " + std::string(e.what()));
     }
 
     if (_schema) {
@@ -174,10 +164,8 @@ void Writer::set_metadata(const std::string& metadata_str) {
 void Writer::set_metadata(const nlohmann::json& metadata) {
     _file_metadata = metadata;
     if (_file_metadata.count("metadata") == 0) {
-        std::stringstream err;
-        err << "Metadata JSON top-level \"metdata\" node not found";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(err.str());
+        throw parquetwriter::layout_exception(
+            "Provided metadata JSON is missing top-level \"metadata\" node");
     }
 
     if (_schema) {
@@ -189,12 +177,6 @@ void Writer::set_metadata(const nlohmann::json& metadata) {
 }
 
 void Writer::set_dataset_name(const std::string& dataset_name) {
-    if (dataset_name.empty()) {
-        std::stringstream err;
-        err << "ERROR: Attempting to give output dataset an invalid name: \"\"";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(err.str());
-    }
     _dataset_name = dataset_name;
 }
 
@@ -218,25 +200,15 @@ void Writer::update_output_stream() {
 
 void Writer::initialize() {
     if (_dataset_name.empty()) {
-        std::stringstream err;
-        err << "ERROR: Cannot initialize writer with empty dataset name";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::logic_error(err.str());
+        throw parquetwriter::writer_exception("Empty dataset name");
     }
 
     if (!_schema) {
-        std::stringstream err;
-        err << "ERROR: Cannot initialize writer with empty Parquet schema";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::logic_error(err.str());
+        throw parquetwriter::writer_exception("Empty Parquet schema");
     }
 
     if (_columns.size() == 0) {
-        std::stringstream err;
-        err << "ERROR: Cannot initialize writer with empty layout (no columns "
-               "specified)";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::logic_error(err.str());
+        throw parquetwriter::writer_exception("Empty file layout (no columns)");
     }
 
     //
@@ -294,10 +266,8 @@ void Writer::initialize() {
 
 void Writer::set_flush_rule(const FlushRule& rule, const uint32_t& n) {
     if (rule == FlushRule::BUFFERSIZE) {
-        std::stringstream err;
-        err << "FlushRule::BUFFERSIZE is not supported";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(err.str());
+        throw parquetwriter::not_implemented_exception(
+            "FlushRule::BUFFERSIZE not supporterd");
     }
     _flush_rule = rule;
     _n_rows_in_group = n;
@@ -307,13 +277,10 @@ void Writer::fill_value(const std::string& field_name,
                         arrow::ArrayBuilder* builder,
                         const std::vector<types::buffer_t>& data_buffer) {
     if (data_buffer.size() != 1) {
-        std::stringstream err;
-        err << "Filling field \"" << field_name
-            << "\" with expected fill type FillType::VALUE with data buffer "
-               "size != 1 (size = "
-            << data_buffer.size() << ")";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error("Invalid data buffer shape");
+        throw parquetwriter::data_buffer_exception(
+            "Invalid data buffer shape for column/field \"" + field_name +
+            "\": expects data buffer size: 1, got: " +
+            std::to_string(data_buffer.size()));
     }
 
     auto data = data_buffer.at(0);
@@ -439,18 +406,14 @@ void Writer::fill_value(const std::string& field_name,
             helpers::fill<std::vector<std::vector<std::vector<double>>>>(
                 *v, builder);
         } else {
-            std::stringstream err;
-            err << "Invalid data type in data buffer provided for field \""
-                << field_name << "\"";
-            log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-            throw std::runtime_error(err.str());
+            throw parquetwriter::data_buffer_exception(
+                "Invalid data type encountered in data buffer provided for "
+                "column/field \"" +
+                field_name + "\"");
         }
     } else {
-        std::stringstream err;
-        err << "Could not get data buffer value for filling field \""
-            << field_name << "\"";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(err.str());
+        throw parquetwriter::data_buffer_exception(
+            "Invalid variant type encountered");
     }
 }
 
@@ -458,13 +421,10 @@ void Writer::fill_value_list(const std::string& field_name,
                              arrow::ArrayBuilder* builder,
                              const std::vector<types::buffer_t>& data_buffer) {
     if (data_buffer.size() != 1) {
-        std::stringstream err;
-        err << "Filling field \"" << field_name
-            << "\" with expected fill type FillType::VALUE_LIST_1D with data "
-               "buffer  size != 1 (size = "
-            << data_buffer.size() << ")";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error("Invalid data buffer shape");
+        throw parquetwriter::data_buffer_exception(
+            "Invalid data buffer shape for column/field \"" + field_name +
+            "\": expects data buffer size: 1, got: " +
+            std::to_string(data_buffer.size()));
     }
 
     auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
@@ -536,29 +496,19 @@ void Writer::fill_struct(const std::string& field_name,
     //
     // get the struct data
     //
-    struct_t struct_data;
-    try {
-        struct_data = std::get<struct_t>(data_buffer.at(0));
-    } catch (std::exception& e) {
-        std::stringstream err;
-        err << "Unable to parse struct field data for field \"" << field_name
-            << "\" (data buffer does not contain type "
-               "parquetwriter::struct_t!)";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error("Invalid data buffer shape");
-    }
+    struct_t struct_data =
+        helpers::struct_from_data_buffer_element(data_buffer.at(0), field_name);
 
     auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
     auto [num_total_fields, num_fields_nonstruct] =
         helpers::field_nums_from_struct(struct_builder, field_name);
 
     if (struct_data.size() != num_fields_nonstruct) {
-        std::stringstream err;
-        err << "Invalid number of data elements provided for struct at \""
-            << field_name << "\" (got: " << struct_data.size()
-            << ", expect: " << num_fields_nonstruct << ")";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error("Invalid data buffer shape");
+        throw parquetwriter::data_buffer_exception(
+            "Invalid number of data elements provided for struct column/field "
+            "\"" +
+            field_name + "\", expect: " + std::to_string(num_fields_nonstruct) +
+            ", got: " + std::to_string(struct_data.size()));
     }
 
     // initiate a new struct element
@@ -591,10 +541,8 @@ void Writer::fill_struct(const std::string& field_name,
 void Writer::fill(const std::string& field_path,
                   const std::vector<types::buffer_t>& data_buffer) {
     if (_expected_fields_filltype_map.count(field_path) == 0) {
-        std::stringstream err;
-        err << "Attempting to fill unknown field \"" << field_path << "\"";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(err.str());
+        throw parquetwriter::writer_exception(
+            "Cannot fill unknown column/field \"" + field_path + "\"");
     }
 
     //
@@ -608,19 +556,15 @@ void Writer::fill(const std::string& field_path,
         parent_column_name = field_path.substr(0, pos_parent);
     }
     if (_column_builder_map.count(parent_column_name) == 0) {
-        std::stringstream err;
-        err << "Could not find parent column associated with field \""
-            << field_path << "\"";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(err.str());
+        throw parquetwriter::writer_exception(
+            "Parent column associated with column/field \"" + field_path +
+            "\" could not be found");
     }
 
     auto builder = _column_builder_map.at(parent_column_name).at(field_path);
     if (!builder) {
-        std::stringstream err;
-        err << "Builder for field \"" << field_path << "\" is null!";
-        log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-        throw std::runtime_error(err.str());
+        throw parquetwriter::writer_exception(
+            "ArrayBuilder for column/field \"" + field_path + "\" is null");
     }
 
     //
@@ -633,11 +577,9 @@ void Writer::fill(const std::string& field_path,
         // type field
         if (field_fill_type == FillType::VALUE ||
             field_fill_type == FillType::STRUCT) {
-            std::stringstream err;
-            err << "Empty data buffer provided for non-list field \""
-                << field_path << "\"";
-            log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-            throw std::runtime_error("Invalid data buffer shape");
+            throw parquetwriter::data_buffer_exception(
+                "Empty data buffer provided for column/field \"" + field_path +
+                "\" that is not of list-type");
         }
         this->append_empty_value(field_path);
     } else {
@@ -659,9 +601,9 @@ void Writer::fill(const std::string& field_path,
                 this->fill_struct_list(field_path, builder, data_buffer);
                 break;
             default:
-                throw std::runtime_error("Invalid FillType \"" +
-                                         filltype_to_string(field_fill_type) +
-                                         "\"");
+                throw parquetwriter::writer_exception(
+                    "Invalid FillType \"" +
+                    filltype_to_string(field_fill_type) + "\"");
                 break;
         }  // switch
     }
@@ -719,16 +661,13 @@ void Writer::append_empty_value(const std::string& field_path) {
             // this is a sub-field of the current parent field
             // if(sub_field_count >= parent_count) {
             if (sub_field_count != parent_count) {
-                std::stringstream err;
-                err << "Cannot append EMPTY VALUE to field \"" << field_path
-                    << "\", there are unequal fill counts between parent field "
-                       "\""
-                    << parent_column_name << "\" and the child field \""
-                    << field_path
-                    << "\" (parent and child fields must have \"fill\" called "
-                       "on them an equal number of times!)";
-                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-                throw std::logic_error("Bad column filling");
+                throw parquetwriter::writer_exception(
+                    "Cannot append empty value to column/field \"" +
+                    field_path + "\": parent column/field (\"" +
+                    parent_column_name +
+                    "\") fill count != child column/field (\"" + field_path +
+                    "\") fill count (" + std::to_string(parent_count) +
+                    " != " + std::to_string(sub_field_count) + ")");
             }
         }
     }
@@ -784,16 +723,12 @@ void Writer::append_null_value(const std::string& field_path) {
             // this is a sub-field of the current parent field
             // if(sub_field_count >= parent_count) {
             if (sub_field_count != parent_count) {
-                std::stringstream err;
-                err << "Cannot append NULL to field \"" << field_path
-                    << "\", there are unequal fill counts between parent field "
-                       "\""
-                    << parent_column_name << "\" and the child field \""
-                    << field_path
-                    << "\" (parent and child fields must have \"fill\" called "
-                       "on them an equal number of times!)";
-                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-                throw std::logic_error("Bad column filling");
+                throw parquetwriter::writer_exception(
+                    "Cannot append null to column/field \"" + field_path +
+                    "\": parent column/field (\"" + parent_column_name +
+                    "\") fill count != child column/field (\"" + field_path +
+                    "\") fill count (" + std::to_string(parent_count) +
+                    " != " + std::to_string(sub_field_count) + ")");
             }
         }
     }
@@ -828,12 +763,11 @@ void Writer::end_row() {
                 this->flush();
             }
         } else if (field_fill_count > 1) {
-            std::stringstream err;
-            err << "Column field \"" << field << "\" has been filled "
-                << field_fill_count
-                << " times for a single row (should be 1), did you forget to "
-                   "call Writer::end_row() at some point?";
-            throw std::runtime_error(err.str());
+            throw parquetwriter::writer_exception(
+                "Column/field \"" + field +
+                "\" has been filled too many times for a single row (expected "
+                "fill count: 1, got: " +
+                std::to_string(field_fill_count) + ")");
         }
     }
 
