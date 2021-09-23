@@ -11,7 +11,7 @@ and to subsequently write to that file.
 
 The `parquet-writer` library aims to provide support for:
 
-  * Specifying the layout of Parqeut files (what types of columns to store) via JSON
+  * Specifying the layout of Parquet files (what types of columns to store) via JSON
   * Storage for numeric data types and boolean values
   * Storage of one-, two-, and three-dimensional lists
   * Storage of struct objects (think: `C` structs) with any number of arbitrarily typed fields
