@@ -1,4 +1,5 @@
 #include "parquet_helpers.h"
+#include "parquet_writer_exceptions.h"
 
 #include "logging.h"
 
@@ -12,9 +13,8 @@ std::shared_ptr<arrow::DataType> datatype_from_string(
     std::shared_ptr<arrow::DataType> out_type = nullptr;
     if (internal::type_init_map.count(type_string) == 0) {
         std::stringstream err;
-        err << "ERROR: Unsupported type string provided: \"" << type_string
-            << "\"";
-        throw std::runtime_error(err.str());
+        err << "Unsupported type encountered in layout: \"" << type_string << "\"";
+        throw parquetwriter::layout_exception(err.str());
     }
     internal::ArrowTypeInit TypeInit;
     return (TypeInit.*(internal::type_init_map.at(type_string)))();
@@ -28,13 +28,8 @@ std::vector<std::shared_ptr<arrow::Field>> columns_from_json(
         jfields = jlayout.at("fields");
     } catch (std::exception& e) {
         std::stringstream err;
-        err << "ERROR: Missing required \"fields\" node in JSON layout";
-        if (!current_node.empty()) {
-            err << " (at node \"" << current_node << "\")";
-        }
-        logging::get_logger()->error("{0} - {1}", __PRETTYFUNCTION__,
-                                     err.str());
-        throw std::runtime_error(e.what());
+        err << "JSON layout for " << (current_node.empty() ? "top-level layout" : "\"" + current_node + "\" ") << "is missing required \"fields\" object";
+        throw parquetwriter::layout_exception(err.str());
     }
 
     size_t n_fields = jfields.size();
@@ -63,10 +58,9 @@ std::vector<std::shared_ptr<arrow::Field>> columns_from_json(
 
                         if (value_type3 == "list") {
                             std::stringstream err;
-                            err << "ERROR: Invalid list depth (>3) encountered "
-                                   "for field with name \""
-                                << field_name << "\"";
-                            throw std::runtime_error(err.str());
+                            err << "Invalid list depth (>3) encountered "
+                                   "for field \"" << field_name << "\"";
+                            throw parquetwriter::layout_exception(err.str());
                         } else if (value_type3 == "struct") {
                             auto struct_fields =
                                 columns_from_json(jcontains3, field_name);
@@ -161,7 +155,7 @@ fill_field_builder_map_from_columns(
             column_filltype_from_builder(column_builder, column_name);
 
         if (column_fill_type == parquetwriter::FillType::INVALID) {
-            throw std::runtime_error("Bad column \"" + column_name + "\"");
+            throw parquetwriter::layout_exception("Invalid data type for column \"" + column_name + "\"");
         }
 
         // get the names of any sub-struct typed fields of structures
@@ -188,11 +182,8 @@ parquetwriter::struct_t struct_from_data_buffer_element(
         struct_data = std::get<struct_t>(data);
     } catch (std::exception& e) {
         std::stringstream err;
-        err << "Unable to parse struct field data for field \"" << field_name
-            << "\"";
-        logging::get_logger()->error("{0} - {1}", __PRETTYFUNCTION__,
-                                     err.str());
-        throw std::runtime_error("Invalid data shape");
+        err << "Cannot parse struct_t type from provided data buffer for field \"" << field_name << "\"";
+        throw parquetwriter::data_buffer_exception(err.str());
     }
     return struct_data;
 }
@@ -202,12 +193,8 @@ struct_type_field_builders(arrow::ArrayBuilder* builder,
                            const std::string& column_name) {
     if (builder->type()->id() != arrow::Type::STRUCT) {
         std::stringstream err;
-        err << "Provided builder (name = \"" << column_name
-            << "\") is not of STRUCT type, has type \""
-            << builder->type()->name() << "\"";
-        logging::get_logger()->error("{0} - {1}", __PRETTYFUNCTION__,
-                                     err.str());
-        throw std::logic_error("Invalid builder type");
+        err << "Invalid ArrayBuilder type for column \"" << column_name << "\", expected type: \"struct\", received type: \"" << builder->type()->name() << "\"";
+        throw parquetwriter::layout_exception(err.str());
     }
     auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
 
@@ -294,10 +281,8 @@ parquetwriter::FillType column_filltype_from_builder(
                 dynamic_cast<arrow::StructBuilder*>(terminal_builder);
             if (!struct_builder) {
                 std::stringstream err;
-                err << "FillType for STRUCT_LIST did not have terminal builder "
-                       "of type STRUCT";
-                log->error("{0} - {1}", __PRETTYFUNCTION__, err.str());
-                throw std::logic_error("Bad column");
+                err << "Column \"" << column_name << "\" is " << depth << "D list of struct, but the terminal value ArrayBuilder is of type \"" << terminal_builder->type()->name() << "\", not struct";
+                throw parquetwriter::layout_exception(err.str());
             }
             if (!valid_sub_struct_layout(struct_builder, column_name)) {
                 std::stringstream err;
