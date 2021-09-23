@@ -6,6 +6,7 @@ target_sources(parquet-writer
     parquet_writer.cpp
     parquet_helpers.cpp
     parquet_writer_fill_types.cpp
+    parquet_writer_exceptions.cpp
     logging.cpp
 )
 

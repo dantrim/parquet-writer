@@ -102,6 +102,11 @@ std::shared_ptr<arrow::DataType> datatype_from_string(
 std::vector<std::shared_ptr<arrow::Field>> columns_from_json(
     const json& jlayout, const std::string& current_node = "");
 
+void check_layout_list(const nlohmann::json& layout,
+                       const std::string& column_name);
+void check_layout_struct(const nlohmann::json& layout,
+                         const std::string& column_name);
+
 std::pair<std::vector<std::string>,
           std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>>>
 fill_field_builder_map_from_columns(

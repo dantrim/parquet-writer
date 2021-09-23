@@ -28,14 +28,14 @@ int main(int argc, char* argv[]) {
                         "fields":[
                                   {"name": "float_field", "type": "float"},
                                   {"name": "int_field", "type": "int32"},
-                                  {"name": "list_field", "type": "list",
+                                  {"name": "list_field", "type": "list1d",
                                                                  "contains": {"type": "int32"}}
                                  ]},
-            {"name": "struct_list1d", "type": "list",
+            {"name": "struct_list1d", "type": "list1d",
                         "contains": {"type": "struct", "fields":[
                                                {"name": "float_field", "type": "float"},
                                                {"name": "int_field", "type": "int32"},
-                                               {"name": "list_field", "type": "list",
+                                               {"name": "list_field", "type": "list1d",
                                                     "contains": {"type": "int32"}}
                                              ]
                                     }},
@@ -43,13 +43,13 @@ int main(int argc, char* argv[]) {
                         "fields":[
                             {"name": "float_field", "type": "float"},
                             {"name": "int_field", "type": "int32"},
-                            {"name": "list_field", "type": "list",
+                            {"name": "list_field", "type": "list1d",
                                             "contains": {"type": "int32"}},
                             {"name": "struct_field", "type": "struct",
                                 "fields":[
                                     {"name": "float_field", "type": "float"},
                                     {"name": "int_field", "type": "int32"},
-                                    {"name": "list_field", "type": "list",
+                                    {"name": "list_field", "type": "list1d",
                                                 "contains": {"type": "int32"}}
                             ]}
                 
@@ -58,27 +58,26 @@ int main(int argc, char* argv[]) {
                         "fields":[
                             {"name": "float_field", "type": "float"},
                             {"name": "int_field", "type": "int32"},
-                            {"name": "list_field", "type": "list",
+                            {"name": "list_field", "type": "list1d",
                                             "contains": {"type": "int32"}},
-                            {"name": "struct_list", "type": "list",
+                            {"name": "struct_list", "type": "list1d",
                                         "contains": {"type": "struct", "fields":[
                                             {"name": "float_field", "type": "float"},
                                             {"name": "int_field", "type": "int32"},
-                                            {"name": "list_field", "type": "list",
+                                            {"name": "list_field", "type": "list1d",
                                                         "contains": {"type": "int32"}}
                                         ]}}
                         ]},
             {"name": "struct_with_struct_list2d", "type": "struct",
                 "fields":[
                     {"name": "float_field", "type": "float"},
-                    {"name": "struct_list", "type": "list",
-                        "contains": {"type": "list",
+                    {"name": "struct_list", "type": "list2d",
                         "contains": {"type": "struct", "fields":[
                                         {"name": "float_field", "type": "float"},
                                         {"name": "int_field", "type": "int32"},
-                                        {"name": "list_field", "type": "list",
+                                        {"name": "list_field", "type": "list1d",
                                                 "contains": {"type": "int32"}}
-                                    ]}}}]
+                                    ]}}]
                 }
         ]
     }
