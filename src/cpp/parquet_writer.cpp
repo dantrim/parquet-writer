@@ -6,7 +6,6 @@
 // std/stl
 #include <algorithm>
 #include <filesystem>
-#include <iostream>
 #include <sstream>
 
 // arrow/parquet
