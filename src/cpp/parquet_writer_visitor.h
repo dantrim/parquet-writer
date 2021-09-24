@@ -1,8 +1,6 @@
 #ifndef PARQUETWRITER_VISITOR_H
 #define PARQUETWRITER_VISITOR_H
 
-#include <iostream>
-
 #include "parquet_writer_exceptions.h"
 #include "parquet_writer_helpers.h"
 
@@ -91,7 +89,7 @@ namespace parquetwriter {
 namespace internal {
 
 template <class>
-inline constexpr bool always_false_v = false;
+inline constexpr bool missing_type_impl_for = false;
 
 struct DataValueFillVisitor {
     DataValueFillVisitor(const std::string& field_name,
@@ -259,7 +257,7 @@ struct DataValueFillVisitor {
             THROW_FOR_INVALID_TYPE(_field_name, DOUBLE, _builder, 3)
             LIST3D_APPEND(_builder, arrow::DoubleBuilder)
         } else {
-            static_assert(always_false_v<T>,
+            static_assert(missing_type_impl_for<T>,
                           "Data filling visitor is non-exhaustive");
         }
     }
