@@ -90,13 +90,12 @@ class Writer {
     // Parquet file
     int64_t _n_rows_in_group;
 
-    uint32_t _field_fill_count;
     std::map<std::string, uint64_t> _column_fill_map;
     std::map<std::string, uint64_t> _expected_field_fill_map;
     std::vector<std::string> _expected_fields_to_fill;
     std::map<std::string, FillType> _expected_fields_filltype_map;
 
-    uint32_t _row_length;
+    uint32_t _n_current_rows_filled;
 
     Compression _compression;
     FlushRule _flush_rule;
@@ -131,8 +130,10 @@ class Writer {
                           arrow::ArrayBuilder* builder,
                           const std::vector<types::buffer_t>& data_buffer);
 
-    bool row_complete();
-
+    void increment_field_fill_count(const std::string& field_path);
+    void check_row_complete();
+    bool row_is_complete();
+    void flush_if_ready();
     void flush();
 
     //

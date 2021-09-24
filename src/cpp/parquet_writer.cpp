@@ -16,8 +16,7 @@ Writer::Writer()
       _dataset_name(""),
       _file_count(0),
       _n_rows_in_group(-1),
-      _field_fill_count(0),
-      _row_length(0),
+      _n_current_rows_filled(0),
       _compression(Compression::UNCOMPRESSED),
       _flush_rule(FlushRule::NROWS),
       _data_pagesize(1024 * 1024 * 512) {
@@ -480,37 +479,43 @@ void Writer::fill(const std::string& field_path,
         }  // switch
     }
 
-    if (std::find(_expected_fields_to_fill.begin(),
-                  _expected_fields_to_fill.end(),
-                  field_path) != _expected_fields_to_fill.end()) {
-        _field_fill_count++;
-        _expected_field_fill_map.at(field_path)++;
-    }
+    // signal that this column/field was succesfully filled
+    increment_field_fill_count(field_path);
 
-    // signal that the row is complete by incremented the current row length,
-    // flush if necessary
-    if (row_complete()) {
-        _row_length++;
-        if (_row_length % _n_rows_in_group == 0) {
-            this->flush();
-        }
+    // check & signal that the row is complete
+    check_row_complete();
+}
+
+void Writer::increment_field_fill_count(const std::string& field_path) {
+    if (_expected_field_fill_map.count(field_path) == 0) {
+        throw parquetwriter::writer_exception(
+            "Unexpected column/field encountered \"" + field_path + "\"");
+    }
+    _expected_field_fill_map.at(field_path)++;
+}
+
+void Writer::check_row_complete() {
+    if (row_is_complete()) {
+        _n_current_rows_filled++;
+        flush_if_ready();
     }
 }
 
-bool Writer::row_complete() {
+bool Writer::row_is_complete() {
     // check that each expected fill field has been filled once
-    bool complete = true;
-    std::vector<std::string> remainders;
-    std::vector<uint64_t> remainders_counts;
     for (const auto& [field_name, field_fill_count] :
          _expected_field_fill_map) {
         if (field_fill_count != 1) {
-            complete = false;
-            remainders.push_back(field_name);
-            remainders_counts.push_back(field_fill_count);
+            return false;
         }
     }
-    return complete;
+    return true;
+}
+
+void Writer::flush_if_ready() {
+    if (_n_current_rows_filled % _n_rows_in_group == 0) {
+        this->flush();
+    }
 }
 
 void Writer::append_empty_value(const std::string& field_path) {
@@ -620,15 +625,15 @@ void Writer::append_null_value(const std::string& field_path) {
 }
 
 void Writer::end_row() {
+    bool corrected_offset = false;
     for (const auto& field : _expected_fields_to_fill) {
         auto field_fill_count = _expected_field_fill_map.at(field);
 
         if (field_fill_count == 0) {
-            _row_length++;
+            // append null to columns that did not have "fill" called on them
+            corrected_offset = true;
             this->append_null_value(field);
-            if (_row_length % _n_rows_in_group == 0) {
-                this->flush();
-            }
+            increment_field_fill_count(field);
         } else if (field_fill_count > 1) {
             throw parquetwriter::writer_exception(
                 "Column/field \"" + field +
@@ -636,6 +641,9 @@ void Writer::end_row() {
                 "fill count: 1, got: " +
                 std::to_string(field_fill_count) + ")");
         }
+    }
+    if (corrected_offset) {
+        check_row_complete();
     }
 
     // reset column field fill counts
@@ -655,8 +663,9 @@ void Writer::flush() {
     }
 
     auto table = arrow::Table::Make(_schema, _arrays);
-    PARQUET_THROW_NOT_OK(_file_writer->WriteTable(*table, _row_length));
-    _row_length = 0;
+    PARQUET_THROW_NOT_OK(
+        _file_writer->WriteTable(*table, _n_current_rows_filled));
+    _n_current_rows_filled = 0;
 
     // flush to the output file
     PARQUET_THROW_NOT_OK(_output_stream->Flush());
