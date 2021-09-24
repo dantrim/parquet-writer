@@ -64,7 +64,7 @@
     for (size_t i = 0; i < val.size(); i++) {                             \
         PARQUET_THROW_NOT_OK(list_builder->Append());                     \
         PARQUET_THROW_NOT_OK(value_builder->AppendValues(val.at(i)));     \
-    }  // i \
+    }
 
 // macro for filling 3d lists (vector<vector<vector<...>>>)
 #define LIST3D_APPEND(ARRAYBUILDER, VALUEBUILDERCLASS)                    \
