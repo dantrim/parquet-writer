@@ -1,7 +1,7 @@
 #include "parquet_writer.h"
 
-#include "parquet_helpers.h"
 #include "parquet_writer_exceptions.h"
+#include "parquet_writer_helpers.h"
 #include "parquet_writer_visitor.h"
 
 // std/stl

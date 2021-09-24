@@ -4,10 +4,10 @@ add_library(parquet-writer SHARED)
 target_sources(parquet-writer
     PRIVATE
     parquet_writer.cpp
-    parquet_helpers.cpp
+    parquet_writer_helpers.cpp
     parquet_writer_fill_types.cpp
     parquet_writer_exceptions.cpp
-    logging.cpp
+    logging.cpp # to be removed
 )
 
 target_include_directories(parquet-writer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

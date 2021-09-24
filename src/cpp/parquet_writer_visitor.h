@@ -3,8 +3,8 @@
 
 #include <iostream>
 
-#include "parquet_helpers.h"
 #include "parquet_writer_exceptions.h"
+#include "parquet_writer_helpers.h"
 
 #define THROW_FOR_INVALID_TYPE(FIELDNAME, ARROWTYPE, ARRAYBUILDER, LISTDEPTH)  \
     if (ARRAYBUILDER->type()->id() != arrow::Type::ARROWTYPE) {                \
