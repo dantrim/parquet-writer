@@ -576,12 +576,9 @@ void Writer::append_null_value(const std::string& field_path) {
         parent_column_name = field_path.substr(0, pos_parent);
     }
 
-    // if this is a sub-struct field, then assume that the parent
-    // column builder is already appending a NULL value --
-    // we should not append a null value to a sub-field since then
-    // the offsets will be incorrect (the NULL value added to the parent
-    // already adds a null to the sub-field)
-
+    // we should not append a null value to a sub-field if the
+    // counts differ between parent and child column since then
+    // the offsets will likely be incorrect
     auto parent_count = _expected_field_fill_map.at(parent_column_name);
     for (const auto& [sub_field_name, sub_field_count] :
          _expected_field_fill_map) {
@@ -592,7 +589,6 @@ void Writer::append_null_value(const std::string& field_path) {
             sub_field_name.find(sub_find.str()) != std::string::npos;
         if (is_sub_field_of_parent) {
             // this is a sub-field of the current parent field
-            // if(sub_field_count >= parent_count) {
             if (sub_field_count != parent_count) {
                 throw parquetwriter::writer_exception(
                     "Cannot append null to column/field \"" + field_path +
