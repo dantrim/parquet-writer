@@ -99,7 +99,7 @@ struct DataValueFillVisitor {
     // make a visitor that can be checked for exhaustively handling
     // all variant types at compile-time
     template <class type>
-    void operator()(type val) {
+    void operator()(const type& val) {
         using T = std::decay_t<decltype(val)>;
         if constexpr (std::is_same_v<T, bool>) {
             THROW_FOR_INVALID_TYPE(_field_name, BOOL, _builder, 0)
