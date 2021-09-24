@@ -90,14 +90,12 @@ class Writer {
     // Parquet file
     int64_t _n_rows_in_group;
 
-    uint32_t _fill_count;
     uint32_t _field_fill_count;
     std::map<std::string, uint64_t> _column_fill_map;
     std::map<std::string, uint64_t> _expected_field_fill_map;
     std::vector<std::string> _expected_fields_to_fill;
     std::map<std::string, FillType> _expected_fields_filltype_map;
 
-    uint64_t _total_fills_required_per_row;
     uint32_t _row_length;
 
     Compression _compression;
