@@ -486,6 +486,68 @@ void Writer::fill(const std::string& field_path,
     check_row_complete();
 }
 
+void Writer::fill(const std::string& field_path,
+                  const std::vector<field_map_t>& struct_field_map_vec) {
+    std::vector<std::string> ordered_fields =
+        this->struct_fill_order(field_path);
+
+    if (struct_field_map_vec.size() != 1) {
+        throw parquetwriter::data_type_exception(
+            "Must provide exactly 1 field_map_t to \"fill\" (at column/field "
+            "\"" +
+            field_path + "\"");
+    }
+    field_map_t struct_field_map = struct_field_map_vec.at(0);
+
+    struct_t ordered_struct_data;
+    for (const auto& expected_field_name : ordered_fields) {
+        if (struct_field_map.count(expected_field_name) == 0) {
+            throw parquetwriter::data_type_exception(
+                "Provided field map for struct column/field \"" + field_path +
+                "\" is missing data for expected field \"" +
+                expected_field_name + "\"");
+        }
+        ordered_struct_data.push_back(struct_field_map.at(expected_field_name));
+    }
+
+    this->fill(field_path, {ordered_struct_data});
+}
+
+std::vector<std::string> Writer::struct_fill_order(
+    const std::string& field_path) {
+    if (_expected_fields_filltype_map.count(field_path) == 0) {
+        throw parquetwriter::writer_exception(
+            "Cannot fill unknown column/field \"" + field_path + "\"");
+    }
+
+    size_t pos_parent = field_path.find_first_of(".");
+    std::string parent_column_name = field_path;
+    if (pos_parent != std::string::npos) {
+        parent_column_name = field_path.substr(0, pos_parent);
+    }
+
+    if (_column_builder_map.count(parent_column_name) == 0) {
+        throw parquetwriter::writer_exception(
+            "Parent column associated with column/field \"" + field_path +
+            "\" could not be found");
+    }
+
+    auto builder = _column_builder_map.at(parent_column_name).at(field_path);
+    if (!builder) {
+        throw parquetwriter::writer_exception(
+            "ArrayBuilder for column/field \"" + field_path + "\" is null");
+    }
+
+    std::vector<std::string> field_ordering =
+        helpers::struct_field_order_from_builder(builder, field_path);
+    if (field_ordering.size() == 0) {
+        throw parquetwriter::writer_exception(
+            "No fields found for expected struct builder column/field \"" +
+            field_path + "\"");
+    }
+    return field_ordering;
+}
+
 void Writer::increment_field_fill_count(const std::string& field_path) {
     if (_expected_field_fill_map.count(field_path) == 0) {
         throw parquetwriter::writer_exception(

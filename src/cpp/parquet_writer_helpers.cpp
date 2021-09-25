@@ -362,6 +362,64 @@ parquetwriter::FillType column_filltype_from_builder(
     return parquetwriter::FillType::VALUE;
 }
 
+std::vector<std::string> struct_field_order_from_builder(
+    arrow::ArrayBuilder* builder, const std::string& field_name) {
+    static std::map<std::string, std::vector<std::string>> field_order_cache;
+    if (field_order_cache.count(field_name) > 0) {
+        return field_order_cache.at(field_name);
+    }
+
+    // either struct or struct-list builder can be provided
+    arrow::StructBuilder* struct_builder = nullptr;
+    if (builder->type()->id() == arrow::Type::LIST) {
+        auto [depth, terminal_builder] = list_builder_description(
+            dynamic_cast<arrow::ListBuilder*>(builder));
+        if (terminal_builder->type()->id() != arrow::Type::STRUCT) {
+            throw parquetwriter::writer_exception(
+                "Expect value builder of type \"struct\" for column/field \"" +
+                field_name + "\", but found  type \"" +
+                terminal_builder->type()->name() + "\"");
+        }
+        struct_builder = dynamic_cast<arrow::StructBuilder*>(terminal_builder);
+    } else if (builder->type()->id() == arrow::Type::STRUCT) {
+        struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
+    } else {
+        throw parquetwriter::writer_exception(
+            "Provided builder for column/field \"" + field_name +
+            "\" is not of \"struct\" type");
+    }
+
+    auto struct_type = struct_builder->type();
+
+    unsigned n_fields = struct_builder->num_children();
+    std::vector<std::string> non_struct_fields;
+    for (size_t ifield = 0; ifield < n_fields; ifield++) {
+        auto child_field_builder = struct_builder->child_builder(ifield).get();
+        auto child_field_name = struct_type->field(ifield)->name();
+        if (builder_is_struct_type(child_field_builder)) continue;
+        non_struct_fields.push_back(child_field_name);
+    }  // ifield
+
+    // cache it for later lookup
+    field_order_cache[field_name] = non_struct_fields;
+    return non_struct_fields;
+}
+
+bool builder_is_struct_type(arrow::ArrayBuilder* builder) {
+    if (builder->type()->id() == arrow::Type::STRUCT) {
+        // check struct type
+        return true;
+    } else if (builder->type()->id() == arrow::Type::LIST) {
+        // check struct_list type
+        auto [depth, terminal_builder] = list_builder_description(
+            dynamic_cast<arrow::ListBuilder*>(builder));
+        if (terminal_builder->type()->id() == arrow::Type::STRUCT) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool valid_sub_struct_layout(arrow::StructBuilder* struct_builder,
                              const std::string& parent_column_name) {
     //
@@ -377,28 +435,32 @@ bool valid_sub_struct_layout(arrow::StructBuilder* struct_builder,
         //
         // no sub struct allowed
         //
-        if (child_field_builder->type()->id() == arrow::Type::STRUCT) {
-            // disallow a field if it itself is a struct
+        if (builder_is_struct_type(child_field_builder)) {
             return false;
-        }  // is_struct
-        else if (child_field_builder->type()->id() == arrow::Type::LIST) {
-            // disallow a field if it itself is a struct list
-            size_t unpack_count = 0;
-            auto list_builder =
-                dynamic_cast<arrow::ListBuilder*>(child_field_builder);
-            auto value_builder = list_builder->value_builder();
-            while (value_builder->type()->id() == arrow::Type::LIST) {
-                if (unpack_count >= 3) break;
-                list_builder = dynamic_cast<arrow::ListBuilder*>(value_builder);
-                value_builder = list_builder->value_builder();
-                unpack_count++;
-            }
+        }
+        // if (child_field_builder->type()->id() == arrow::Type::STRUCT) {
+        //    // disallow a field if it itself is a struct
+        //    return false;
+        //}  // is_struct
+        // else if (child_field_builder->type()->id() == arrow::Type::LIST) {
+        //    // disallow a field if it itself is a struct list
+        //    size_t unpack_count = 0;
+        //    auto list_builder =
+        //        dynamic_cast<arrow::ListBuilder*>(child_field_builder);
+        //    auto value_builder = list_builder->value_builder();
+        //    while (value_builder->type()->id() == arrow::Type::LIST) {
+        //        if (unpack_count >= 3) break;
+        //        list_builder =
+        //        dynamic_cast<arrow::ListBuilder*>(value_builder);
+        //        value_builder = list_builder->value_builder();
+        //        unpack_count++;
+        //    }
 
-            if (value_builder->type()->id() == arrow::Type::STRUCT) {
-                return false;
-            }
-        }  // is_list
-    }      // ichild
+        //    if (value_builder->type()->id() == arrow::Type::STRUCT) {
+        //        return false;
+        //    }
+        //}  // is_list
+    }  // ichild
 
     return true;
 }

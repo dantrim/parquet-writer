@@ -59,6 +59,8 @@ class Writer {
 
     void fill(const std::string& field_path,
               const std::vector<types::buffer_t>& data_buffer);
+    void fill(const std::string& field_path,
+              const std::vector<field_map_t>& struct_field_map);
 
     void append_empty_value(const std::string& field_path);
     void append_null_value(const std::string& field_path);
@@ -118,6 +120,7 @@ class Writer {
     void update_output_stream();
     void new_file();
 
+    std::vector<std::string> struct_fill_order(const std::string& field_path);
     void fill_value(const std::string& field_name, arrow::ArrayBuilder* builder,
                     const std::vector<types::buffer_t>& data_buffer);
     void fill_value_list(const std::string& field_name,

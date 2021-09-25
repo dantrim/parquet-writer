@@ -80,6 +80,9 @@ parquetwriter::FillType column_filltype_from_builder(
 
 bool valid_sub_struct_layout(arrow::StructBuilder* struct_builder,
                              const std::string& parent_column_name);
+std::vector<std::string> struct_field_order_from_builder(
+    arrow::ArrayBuilder* builder, const std::string& field_path);
+bool builder_is_struct_type(arrow::ArrayBuilder* builder);
 std::pair<unsigned, arrow::ArrayBuilder*> list_builder_description(
     arrow::ListBuilder* list_builder);
 std::pair<std::vector<std::string>, std::vector<arrow::ArrayBuilder*>>

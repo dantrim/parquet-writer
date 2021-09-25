@@ -3,6 +3,7 @@
 // std/stl
 #include <stdint.h>
 
+#include <map>
 #include <variant>
 #include <vector>
 
@@ -71,4 +72,5 @@ typedef std::vector<types::buffer_t> struct_list3d;
 typedef std::vector<types::buffer_t> struct_list2d;
 typedef std::vector<types::buffer_t> struct_list1d;
 typedef types::buffer_value_vec_t struct_t;
+typedef std::map<std::string, types::buffer_value_t> field_map_t;
 };  // namespace parquetwriter
