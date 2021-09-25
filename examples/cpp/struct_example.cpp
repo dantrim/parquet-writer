@@ -124,15 +124,20 @@ int main(int argc, char* argv[]) {
 
     // the "basic_struct" column holds a single struct element in each row (it
     // is flat)
-    pw::struct_t basic_struct_data{float_field_data, int_field_data,
-                                   list_field_data};
+    pw::field_map_t basic_struct_data{ {"float_field", float_field_data},
+                                       {"int_field", int_field_data},
+                                       {"list_field", list_field_data} };
+    //pw::struct_t basic_struct_data{float_field_data, int_field_data,
+    //                               list_field_data};
 
     // the "struct_list1d" column holds a list of struct elements in each row
     // (here the list length is arbitrarily set to 7)
     pw::struct_list1d struct_list_data;
     for (size_t i = 0; i < 7; i++) {
-        pw::struct_t struct_data{float_field_data, int_field_data,
-                                 list_field_data};
+        pw::field_map_t struct_map{ {"float_field", float_field_data},
+                                    {"int_field", int_field_data},
+                                    {"list_field", list_field_data} };
+        pw::struct_t struct_data = writer.to_struct("struct_list1d", struct_map);
         struct_list_data.push_back(struct_data);
     }  // i
 

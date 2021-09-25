@@ -493,10 +493,25 @@ void Writer::fill(const std::string& field_path,
     check_row_complete();
 }
 
+struct_t Writer::to_struct(const std::string& field_path,
+        const field_map_t& field_map) {
+
+    std::vector<std::string> ordered_fields = this->struct_fill_order(field_path);
+    struct_t ordered_struct_data;
+    for (const auto& expected_field_name : ordered_fields) {
+        if(field_map.count(expected_field_name) == 0 ) {
+            throw parquetwriter::data_type_exception(
+                "Provided field map for struct column/field \"" + field_path +
+                "\" is missing data for expected field \"" +
+                expected_field_name + "\"");
+        }
+        ordered_struct_data.push_back(field_map.at(expected_field_name));
+    }
+    return ordered_struct_data;
+}
+
 void Writer::fill(const std::string& field_path,
                   const std::vector<field_map_t>& struct_field_map_vec) {
-    std::vector<std::string> ordered_fields =
-        this->struct_fill_order(field_path);
 
     if (struct_field_map_vec.size() != 1) {
         throw parquetwriter::data_type_exception(
@@ -505,18 +520,7 @@ void Writer::fill(const std::string& field_path,
             field_path + "\"");
     }
     field_map_t struct_field_map = struct_field_map_vec.at(0);
-
-    struct_t ordered_struct_data;
-    for (const auto& expected_field_name : ordered_fields) {
-        if (struct_field_map.count(expected_field_name) == 0) {
-            throw parquetwriter::data_type_exception(
-                "Provided field map for struct column/field \"" + field_path +
-                "\" is missing data for expected field \"" +
-                expected_field_name + "\"");
-        }
-        ordered_struct_data.push_back(struct_field_map.at(expected_field_name));
-    }
-
+    auto ordered_struct_data = this->to_struct(field_path, struct_field_map);
     this->fill(field_path, {ordered_struct_data});
 }
 

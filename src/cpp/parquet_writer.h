@@ -57,6 +57,8 @@ class Writer {
     void set_flush_rule(const FlushRule& rule, const uint32_t& n);
     void set_pagesize(const uint32_t& pagesize) { _data_pagesize = pagesize; }
 
+    struct_t to_struct(const std::string& field_path, const field_map_t& struct_field_map);
+
     void fill(const std::string& field_path,
               const std::vector<types::buffer_t>& data_buffer);
     void fill(const std::string& field_path,
