@@ -4,6 +4,7 @@
 
 // std/stl
 #include <sstream>
+
 namespace parquetwriter {
 namespace helpers {
 

@@ -365,6 +365,7 @@ void Writer::fill_struct_list(const std::string& field_name,
 void Writer::fill_struct(const std::string& path_name,
                          arrow::ArrayBuilder* builder,
                          const std::vector<types::buffer_t>& data_buffer) {
+
     //
     // get the struct data
     //
@@ -392,21 +393,27 @@ void Writer::fill_struct(const std::string& path_name,
     // actual column type
     //
     auto struct_type = struct_builder->type();
+    size_t data_idx = 0;
     for (size_t ifield = 0; ifield < num_total_fields; ifield++) {
         auto field_builder = struct_builder->child_builder(ifield).get();
         auto field_type = field_builder->type();
         auto field_name = struct_type->field(ifield)->name();
 
-        if (ifield >= struct_data.size()) break;
-        if (field_type->id() == arrow::Type::STRUCT) {
-            ifield--;
+        // presumably we have finished filling all the requisite fields
+        if (data_idx >= struct_data.size())  {
+            break;
+        }
+
+        // skip struct-typed and struct_list-typed fields
+        if(helpers::builder_is_struct_type(field_builder)) {
             continue;
         }
 
         std::stringstream field_path_name;
         field_path_name << path_name << "." << field_name;
         this->fill_value(field_path_name.str(), field_builder,
-                         {struct_data.at(ifield)});
+                         {struct_data.at(data_idx)});
+        data_idx++;
     }  // ifield
 }
 
@@ -540,6 +547,7 @@ std::vector<std::string> Writer::struct_fill_order(
 
     std::vector<std::string> field_ordering =
         helpers::struct_field_order_from_builder(builder, field_path);
+
     if (field_ordering.size() == 0) {
         throw parquetwriter::writer_exception(
             "No fields found for expected struct builder column/field \"" +
