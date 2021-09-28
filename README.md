@@ -237,7 +237,6 @@ float field1_data = 84.0;
 float field2_data = 126.0;
 
 // one-dimensional case: list[struct{float, float, float}]
-pw::struct_list1d my_1d_structlist_data;
 std::vector<pw::struct_t> my_1d_structlist_data;
 for(...) {
   pw::struct_t struct_data{
