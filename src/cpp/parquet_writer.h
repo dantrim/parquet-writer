@@ -57,8 +57,26 @@ class Writer {
     void set_flush_rule(const FlushRule& rule, const uint32_t& n);
     void set_pagesize(const uint32_t& pagesize) { _data_pagesize = pagesize; }
 
+    field_buffer_t to_struct(const std::string& field_path,
+                             const field_map_t& struct_field_map);
+
     void fill(const std::string& field_path,
               const std::vector<types::buffer_t>& data_buffer);
+
+    void fill_struct(const std::string& field_path,
+                     const std::map<std::string, value_t>& struct_buffer);
+    void fill_struct_list1d(
+        const std::string& field_path,
+        const std::vector<std::map<std::string, value_t>>& struct_buffer);
+    void fill_struct_list2d(
+        const std::string& field_path,
+        const std::vector<std::vector<std::map<std::string, value_t>>>&
+            struct_buffer);
+    void fill_struct_list3d(
+        const std::string& field_path,
+        const std::vector<
+            std::vector<std::vector<std::map<std::string, value_t>>>>&
+            struct_buffer);
 
     void append_empty_value(const std::string& field_path);
     void append_null_value(const std::string& field_path);
@@ -118,17 +136,18 @@ class Writer {
     void update_output_stream();
     void new_file();
 
+    std::vector<std::string> struct_fill_order(const std::string& field_path);
     void fill_value(const std::string& field_name, arrow::ArrayBuilder* builder,
                     const std::vector<types::buffer_t>& data_buffer);
     void fill_value_list(const std::string& field_name,
                          arrow::ArrayBuilder* builder,
                          const std::vector<types::buffer_t>& data_buffer);
-    void fill_struct(const std::string& field_name,
-                     arrow::ArrayBuilder* builder,
-                     const std::vector<types::buffer_t>& data_buffer);
-    void fill_struct_list(const std::string& field_name,
-                          arrow::ArrayBuilder* builder,
-                          const std::vector<types::buffer_t>& data_buffer);
+    void fill_struct_(const std::string& field_name,
+                      arrow::ArrayBuilder* builder,
+                      const std::vector<types::buffer_t>& data_buffer);
+    void fill_struct_list_(const std::string& field_name,
+                           arrow::ArrayBuilder* builder,
+                           const std::vector<types::buffer_t>& data_buffer);
 
     void increment_field_fill_count(const std::string& field_path);
     void check_row_complete();

@@ -110,11 +110,11 @@ int main(int argc, char* argv[]) {
     // col13
     uint32_t col13_field_foo = 42;
     double col13_field_bar = 103.7;
-    pw::struct_t col13_data{col13_field_foo, col13_field_bar};
+    pw::field_buffer_t col13_data{col13_field_foo, col13_field_bar};
     // col14
     pw::struct_list1d col14_data;
     for (size_t i = 0; i < 5; i++) {
-        pw::struct_t col14_element_field_data;
+        pw::field_buffer_t col14_element_field_data;
         uint32_t col14_field_faz = 32;
         std::vector<int32_t> col14_field_baz{1, -2, 3, -4};
         col14_element_field_data.push_back(col14_field_faz);
@@ -135,9 +135,9 @@ int main(int argc, char* argv[]) {
     // col18
     pw::struct_list2d col18_data;
     for (size_t i = 0; i < 3; i++) {
-        std::vector<pw::struct_t> inner_data;
+        std::vector<pw::field_buffer_t> inner_data;
         for (size_t j = 0; j < (i + 1); j++) {
-            pw::struct_t col18_element_field_data;
+            pw::field_buffer_t col18_element_field_data;
             float col18_field_foo = i * j;
             int32_t col18_field_bar = i * j + 2;
             col18_element_field_data.push_back(col18_field_foo);
@@ -150,11 +150,11 @@ int main(int argc, char* argv[]) {
     // col19
     pw::struct_list3d col19_data;
     for (size_t i = 0; i < 5; i++) {
-        std::vector<std::vector<pw::struct_t>> inner3_data;
+        std::vector<std::vector<pw::field_buffer_t>> inner3_data;
         for (size_t j = 0; j < 3; j++) {
-            std::vector<pw::struct_t> inner2_data;
+            std::vector<pw::field_buffer_t> inner2_data;
             for (size_t k = 0; k < 2; k++) {
-                pw::struct_t col19_element_field_data;
+                pw::field_buffer_t col19_element_field_data;
                 float col19_field_foo = i * j * k;
                 int32_t col19_field_bar = i * j * k + 2;
                 col19_element_field_data.push_back(col19_field_foo);
