@@ -166,21 +166,6 @@ fill_field_builder_map_from_columns(
     return std::make_pair(field_names, out);
 }
 
-parquetwriter::field_buffer_t struct_from_data_buffer_element(
-    const parquetwriter::types::buffer_t& data, const std::string& field_name) {
-    field_buffer_t struct_data;
-    try {
-        struct_data = std::get<field_buffer_t>(data);
-    } catch (std::exception& e) {
-        throw parquetwriter::data_buffer_exception(
-            "Cannot parse field_buffer_t from provided data buffer for "
-            "column/field "
-            "\"" +
-            field_name + "\"");
-    }
-    return struct_data;
-}
-
 std::pair<std::vector<std::string>, std::vector<arrow::ArrayBuilder*>>
 struct_type_field_builders(arrow::ArrayBuilder* builder,
                            const std::string& column_name) {
@@ -504,6 +489,15 @@ std::pair<unsigned, unsigned> field_nums_from_struct(
     auto out = std::make_pair(total_num, total_non_struct);
     count_map[column_name] = out;
     return out;
+}
+
+std::string parent_column_name_from_field(const std::string& field_path) {
+    size_t pos_parent = field_path.find_first_of(".");
+    std::string parent_column_name = field_path;
+    if(pos_parent != std::string::npos) {
+        parent_column_name = field_path.substr(0, pos_parent);
+    }
+    return parent_column_name;
 }
 
 };  // namespace helpers

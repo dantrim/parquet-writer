@@ -70,6 +70,8 @@ void check_layout_list(const nlohmann::json& layout,
 void check_layout_struct(const nlohmann::json& layout,
                          const std::string& column_name);
 
+std::string parent_column_name_from_field(const std::string& field_path);
+
 std::pair<std::vector<std::string>,
           std::map<std::string, std::map<std::string, arrow::ArrayBuilder*>>>
 fill_field_builder_map_from_columns(
@@ -88,9 +90,6 @@ std::pair<unsigned, arrow::ArrayBuilder*> list_builder_description(
 std::pair<std::vector<std::string>, std::vector<arrow::ArrayBuilder*>>
 struct_type_field_builders(arrow::ArrayBuilder* builder,
                            const std::string& column_name);
-
-parquetwriter::field_buffer_t struct_from_data_buffer_element(
-    const parquetwriter::types::buffer_t& data, const std::string& field_name);
 
 std::pair<unsigned, unsigned> field_nums_from_struct(
     const arrow::StructBuilder* builder, const std::string& column_name);
