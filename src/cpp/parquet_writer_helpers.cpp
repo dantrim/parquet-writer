@@ -494,7 +494,7 @@ std::pair<unsigned, unsigned> field_nums_from_struct(
 std::string parent_column_name_from_field(const std::string& field_path) {
     size_t pos_parent = field_path.find_first_of(".");
     std::string parent_column_name = field_path;
-    if(pos_parent != std::string::npos) {
+    if (pos_parent != std::string::npos) {
         parent_column_name = field_path.substr(0, pos_parent);
     }
     return parent_column_name;
