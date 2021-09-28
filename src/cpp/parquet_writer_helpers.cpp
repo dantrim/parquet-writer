@@ -167,18 +167,20 @@ fill_field_builder_map_from_columns(
 }
 
 parquetwriter::field_buffer_t struct_from_data_buffer_element(
-    const value_t& data, const std::string& field_name) {
-    field_buffer_t struct_data;
-    try {
-        struct_data = std::get<field_buffer_t>(data);
-    } catch (std::exception& e) {
-        throw parquetwriter::data_buffer_exception(
-            "Cannot parse field_buffer_t from provided data buffer for "
-            "column/field "
-            "\"" +
-            field_name + "\"");
-    }
-    return struct_data;
+    const field_buffer_t& data, const std::string& field_name) {
+    return data;
+    //field_buffer_t struct_data;
+
+    //try {
+    //    struct_data = std::get<field_buffer_t>(data);
+    //} catch (std::exception& e) {
+    //    throw parquetwriter::data_buffer_exception(
+    //        "Cannot parse field_buffer_t from provided data buffer for "
+    //        "column/field "
+    //        "\"" +
+    //        field_name + "\"");
+    //}
+    //return struct_data;
 }
 
 std::pair<std::vector<std::string>, std::vector<arrow::ArrayBuilder*>>

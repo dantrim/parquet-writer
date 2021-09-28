@@ -90,7 +90,7 @@ struct_type_field_builders(arrow::ArrayBuilder* builder,
                            const std::string& column_name);
 
 parquetwriter::field_buffer_t struct_from_data_buffer_element(
-    const parquetwriter::value_t& data, const std::string& field_name);
+    const parquetwriter::field_buffer_t& data, const std::string& field_name);
 
 std::pair<unsigned, unsigned> field_nums_from_struct(
     const arrow::StructBuilder* builder, const std::string& column_name);
