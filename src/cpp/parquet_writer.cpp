@@ -1,7 +1,5 @@
 #include "parquet_writer.h"
 
-#include <iostream>
-
 #include "parquet_writer_exceptions.h"
 #include "parquet_writer_helpers.h"
 #include "parquet_writer_visitor.h"
@@ -316,7 +314,7 @@ void Writer::fill(const std::string& field_path, const value_t& data_value) {
 }
 
 void Writer::fill(const std::string& field_path,
-                  const std::vector<value_t>& struct_field_data) {
+                  const field_buffer_t& struct_field_data) {
     auto field_fill_type = _expected_fields_filltype_map.at(field_path);
     if (field_fill_type != FillType::STRUCT) {
         throw parquetwriter::data_buffer_exception(
@@ -340,7 +338,7 @@ void Writer::fill(const std::string& field_path,
 }
 
 void Writer::fill(const std::string& field_path,
-                  const std::vector<std::vector<value_t>>& struct_list_data) {
+                  const std::vector<field_buffer_t>& struct_list_data) {
     auto field_fill_type = _expected_fields_filltype_map.at(field_path);
     if (field_fill_type != FillType::STRUCT_LIST_1D) {
         throw parquetwriter::data_buffer_exception(
@@ -480,7 +478,7 @@ void Writer::fill(const std::string& field_path,
 
 void Writer::fill(const std::string& field_path,
                   const field_map_t& struct_field_map) {
-    auto struct_data =
+    field_buffer_t struct_data =
         this->field_map_to_field_buffer(field_path, struct_field_map);
     this->fill(field_path, struct_data);
 }
@@ -532,7 +530,7 @@ void Writer::fill(const std::string& field_path,
 
 void Writer::fill_struct(const std::string& field_path,
                          arrow::ArrayBuilder* builder,
-                         const std::vector<value_t>& struct_field_data) {
+                         const field_buffer_t& struct_field_data) {
     auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
     auto [num_fields_total, num_fields_nonstruct] =
         helpers::field_nums_from_struct(struct_builder, field_path);
