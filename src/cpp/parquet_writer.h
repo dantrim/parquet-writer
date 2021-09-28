@@ -57,26 +57,27 @@ class Writer {
     void set_flush_rule(const FlushRule& rule, const uint32_t& n);
     void set_pagesize(const uint32_t& pagesize) { _data_pagesize = pagesize; }
 
-    field_buffer_t to_struct(const std::string& field_path,
-                             const struct_t& struct_field_map);
+    // handles the filling of all value_types and list[<value_type>] filling
+    void fill(const std::string& field_path, const value_t& data_value);
 
+    // handles the filling of a struct and struct list objects
+    void fill(const std::string& field_path, const field_buffer_t& struct_data);
     void fill(const std::string& field_path,
-              const std::vector<types::buffer_t>& data_buffer);
+              const std::vector<field_buffer_t>& struct_list_data);
+    void fill(const std::string& field_path,
+              const std::vector<std::vector<field_buffer_t>>& struct_list_data);
+    void fill(const std::string& field_path,
+              const std::vector<std::vector<std::vector<field_buffer_t>>>&
+                  struct_list_data);
 
-    void fill_struct(const std::string& field_path,
-                     const std::map<std::string, value_t>& struct_buffer);
-    void fill_struct_list(
-        const std::string& field_path,
-        const std::vector<std::map<std::string, value_t>>& struct_buffer);
-    void fill_struct_list(
-        const std::string& field_path,
-        const std::vector<std::vector<std::map<std::string, value_t>>>&
-            struct_buffer);
-    void fill_struct_list(
-        const std::string& field_path,
-        const std::vector<
-            std::vector<std::vector<std::map<std::string, value_t>>>>&
-            struct_buffer);
+    void fill(const std::string& field_path, const field_map_t& struct_data);
+    void fill(const std::string& field_path,
+              const std::vector<field_map_t>& struct_list_data);
+    void fill(const std::string& field_path,
+              const std::vector<std::vector<field_map_t>>& struct_list_data);
+    void fill(const std::string& field_path,
+              const std::vector<std::vector<std::vector<field_map_t>>>&
+                  struct_list_data);
 
     void append_empty_value(const std::string& field_path);
     void append_null_value(const std::string& field_path);
@@ -136,18 +137,21 @@ class Writer {
     void update_output_stream();
     void new_file();
 
+    void end_fill(const std::string& field_path);
     std::vector<std::string> struct_fill_order(const std::string& field_path);
     void fill_value(const std::string& field_name, arrow::ArrayBuilder* builder,
-                    const std::vector<types::buffer_t>& data_buffer);
+                    const value_t& data_buffer);
     void fill_value_list(const std::string& field_name,
                          arrow::ArrayBuilder* builder,
-                         const std::vector<types::buffer_t>& data_buffer);
-    void fill_struct_(const std::string& field_name,
-                      arrow::ArrayBuilder* builder,
-                      const std::vector<types::buffer_t>& data_buffer);
-    void fill_struct_list_(const std::string& field_name,
-                           arrow::ArrayBuilder* builder,
-                           const std::vector<types::buffer_t>& data_buffer);
+                         const value_t& data_buffer);
+    void fill_struct(const std::string& field_path,
+                     arrow::ArrayBuilder* builder,
+                     const std::vector<value_t>& struct_field_data);
+    field_buffer_t field_map_to_field_buffer(
+        const std::string& field_path, const field_map_t& struct_field_map);
+
+    std::pair<FillType, arrow::ArrayBuilder*> initialize_fill(
+        const std::string& field_path, const FillType& expected_filltype);
 
     void increment_field_fill_count(const std::string& field_path);
     void check_row_complete();

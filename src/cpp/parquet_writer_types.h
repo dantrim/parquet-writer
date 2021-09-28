@@ -56,22 +56,12 @@ typedef std::variant<
     std::vector<std::vector<std::vector<float>>>,
     std::vector<std::vector<std::vector<double>>>>
     buffer_value_t;
-
-typedef std::vector<buffer_value_t> buffer_value_vec_t;
-typedef std::vector<std::vector<buffer_value_t>> buffer_value_vec2d_t;
-typedef std::vector<std::vector<std::vector<buffer_value_t>>>
-    buffer_value_vec3d_t;
-typedef std::variant<buffer_value_t, buffer_value_vec_t, buffer_value_vec2d_t,
-                     buffer_value_vec3d_t>
-    buffer_t;
 // clang-format on
 };  // namespace types
 
-// convenience types to hide some internal ugly names
-typedef std::vector<types::buffer_t> struct_list3d;
-typedef std::vector<types::buffer_t> struct_list2d;
-typedef std::vector<types::buffer_t> struct_list1d;
-typedef types::buffer_value_vec_t field_buffer_t;
+// these are the only types we should have
 typedef types::buffer_value_t value_t;
-typedef std::map<std::string, value_t> struct_t;
+typedef std::vector<value_t> field_buffer_t;
+typedef std::map<std::string, value_t> field_map_t;
+
 };  // namespace parquetwriter

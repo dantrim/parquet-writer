@@ -1,5 +1,7 @@
 #include "parquet_writer.h"
 
+#include <iostream>
+
 #include "parquet_writer_exceptions.h"
 #include "parquet_writer_helpers.h"
 #include "parquet_writer_visitor.h"
@@ -272,223 +274,19 @@ void Writer::set_flush_rule(const FlushRule& rule, const uint32_t& n) {
 
 void Writer::fill_value(const std::string& field_name,
                         arrow::ArrayBuilder* builder,
-                        const std::vector<types::buffer_t>& data_buffer) {
-    if (data_buffer.size() != 1) {
-        throw parquetwriter::data_buffer_exception(
-            "Invalid data buffer shape for column/field \"" + field_name +
-            "\": expects data buffer size: 1, got: " +
-            std::to_string(data_buffer.size()));
-    }
-
-    auto data = data_buffer.at(0);
-    if (auto val = std::get_if<types::buffer_value_t>(&data)) {
-        std::visit(internal::DataValueFillVisitor(field_name, builder), *val);
-    } else {
-        throw parquetwriter::data_buffer_exception(
-            "Invalid variant type encountered");
-    }
+                        const value_t& data_buffer) {
+    std::visit(internal::DataValueFillVisitor(field_name, builder),
+               data_buffer);
 }
 
 void Writer::fill_value_list(const std::string& field_name,
                              arrow::ArrayBuilder* builder,
-                             const std::vector<types::buffer_t>& data_buffer) {
-    if (data_buffer.size() != 1) {
-        throw parquetwriter::data_buffer_exception(
-            "Invalid data buffer shape for column/field \"" + field_name +
-            "\": expects data buffer size: 1, got: " +
-            std::to_string(data_buffer.size()));
-    }
-
+                             const value_t& data_buffer) {
     auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
     this->fill_value(field_name, list_builder, data_buffer);
 }
 
-void Writer::fill_struct_list_(
-    const std::string& field_name, arrow::ArrayBuilder* builder,
-    const std::vector<types::buffer_t>& data_buffer) {
-    auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
-    auto [depth, terminal_builder] =
-        helpers::list_builder_description(list_builder);
-
-    if (depth == 1) {
-        // initiate a new list element
-        PARQUET_THROW_NOT_OK(list_builder->Append());
-
-        // initiate a new struct element
-        auto value_builder = list_builder->value_builder();
-        for (size_t i = 0; i < data_buffer.size(); i++) {
-            field_buffer_t struct_data =
-                helpers::struct_from_data_buffer_element(data_buffer.at(i),
-                                                         field_name);
-            this->fill_struct_(field_name, value_builder, {struct_data});
-        }
-    } else if (depth == 2) {
-        PARQUET_THROW_NOT_OK(list_builder->Append());
-        list_builder =
-            dynamic_cast<arrow::ListBuilder*>(list_builder->value_builder());
-        auto value_builder = list_builder->value_builder();
-        for (size_t i = 0; i < data_buffer.size(); i++) {
-            PARQUET_THROW_NOT_OK(list_builder->Append());
-            auto inner_data =
-                std::get<std::vector<field_buffer_t>>(data_buffer.at(i));
-            for (size_t j = 0; j < inner_data.size(); j++) {
-                field_buffer_t struct_data =
-                    helpers::struct_from_data_buffer_element(inner_data.at(j),
-                                                             field_name);
-                this->fill_struct_(field_name, value_builder, {struct_data});
-            }
-        }
-    } else if (depth == 3) {
-        PARQUET_THROW_NOT_OK(list_builder->Append());
-        auto inner_list_builder =
-            dynamic_cast<arrow::ListBuilder*>(list_builder->value_builder());
-        auto inner_inner_list_builder = dynamic_cast<arrow::ListBuilder*>(
-            inner_list_builder->value_builder());
-        auto value_builder = inner_inner_list_builder->value_builder();
-        for (size_t i = 0; i < data_buffer.size(); i++) {
-            PARQUET_THROW_NOT_OK(inner_list_builder->Append());
-            auto inner_data =
-                std::get<std::vector<std::vector<field_buffer_t>>>(
-                    data_buffer.at(i));
-            for (size_t j = 0; j < inner_data.size(); j++) {
-                PARQUET_THROW_NOT_OK(inner_inner_list_builder->Append());
-                auto inner_inner_data = inner_data.at(
-                    j);  // std::get<std::vector<field_buffer_t>>(inner_data.at(j));
-                for (size_t k = 0; k < inner_inner_data.size(); k++) {
-                    field_buffer_t struct_data =
-                        helpers::struct_from_data_buffer_element(
-                            inner_inner_data.at(k), field_name);
-                    this->fill_struct_(field_name, value_builder,
-                                       {struct_data});
-                }  // k
-            }      // j
-        }          // i
-    }
-}
-
-void Writer::fill_struct_(const std::string& path_name,
-                          arrow::ArrayBuilder* builder,
-                          const std::vector<types::buffer_t>& data_buffer) {
-    //
-    // get the struct data
-    //
-    field_buffer_t struct_data =
-        helpers::struct_from_data_buffer_element(data_buffer.at(0), path_name);
-
-    auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
-    auto [num_total_fields, num_fields_nonstruct] =
-        helpers::field_nums_from_struct(struct_builder, path_name);
-
-    if (struct_data.size() != num_fields_nonstruct) {
-        throw parquetwriter::data_buffer_exception(
-            "Invalid number of data elements provided for struct column/field "
-            "\"" +
-            path_name + "\", expect: " + std::to_string(num_fields_nonstruct) +
-            ", got: " + std::to_string(struct_data.size()));
-    }
-
-    // initiate a new struct element
-    PARQUET_THROW_NOT_OK(struct_builder->Append());
-
-    //
-    // here will fill the fields of the struct, assuming that the order and type
-    // of the data in the provided data_buffer/field_buffer_t matches that of
-    // the actual column type
-    //
-    auto field_buffer_type = struct_builder->type();
-    size_t data_idx = 0;
-    for (size_t ifield = 0; ifield < num_total_fields; ifield++) {
-        auto field_builder = struct_builder->child_builder(ifield).get();
-        auto field_type = field_builder->type();
-        auto field_name = field_buffer_type->field(ifield)->name();
-
-        // presumably we have finished filling all the requisite fields
-        if (data_idx >= struct_data.size()) {
-            break;
-        }
-
-        // skip struct-typed and struct_list-typed fields
-        if (helpers::builder_is_struct_type(field_builder)) {
-            continue;
-        }
-
-        std::stringstream field_path_name;
-        field_path_name << path_name << "." << field_name;
-        this->fill_value(field_path_name.str(), field_builder,
-                         {struct_data.at(data_idx)});
-        data_idx++;
-    }  // ifield
-}
-
-void Writer::fill(const std::string& field_path,
-                  const std::vector<types::buffer_t>& data_buffer) {
-    if (_expected_fields_filltype_map.count(field_path) == 0) {
-        throw parquetwriter::writer_exception(
-            "Cannot fill unknown column/field \"" + field_path + "\"");
-    }
-
-    //
-    // get the parent column name (needed for cases in which this is a
-    // sub-field)
-    //
-    size_t pos_parent = field_path.find_first_of(".");
-    std::string parent_column_name = field_path;
-    if (pos_parent != std::string::npos) {
-        parent_column_name = field_path.substr(0, pos_parent);
-    }
-    if (_column_builder_map.count(parent_column_name) == 0) {
-        throw parquetwriter::writer_exception(
-            "Parent column associated with column/field \"" + field_path +
-            "\" could not be found");
-    }
-
-    auto builder = _column_builder_map.at(parent_column_name).at(field_path);
-    if (!builder) {
-        throw parquetwriter::writer_exception(
-            "ArrayBuilder for column/field \"" + field_path + "\" is null");
-    }
-
-    //
-    // perform the fill for the corresponding supported type
-    //
-    auto field_fill_type = _expected_fields_filltype_map.at(field_path);
-
-    if (data_buffer.size() == 0) {
-        // the only time that an empty data buffer is valid is if this is a list
-        // type field
-        if (field_fill_type == FillType::VALUE ||
-            field_fill_type == FillType::STRUCT) {
-            throw parquetwriter::data_buffer_exception(
-                "Empty data buffer provided for column/field \"" + field_path +
-                "\" that is not of list-type");
-        }
-        this->append_empty_value(field_path);
-    } else {
-        switch (field_fill_type) {
-            case FillType::VALUE:
-                this->fill_value(field_path, builder, data_buffer);
-                break;
-            case FillType::VALUE_LIST_1D:
-            case FillType::VALUE_LIST_2D:
-            case FillType::VALUE_LIST_3D:
-                this->fill_value_list(field_path, builder, data_buffer);
-                break;
-            case FillType::STRUCT:
-                this->fill_struct_(field_path, builder, data_buffer);
-                break;
-            case FillType::STRUCT_LIST_1D:
-            case FillType::STRUCT_LIST_2D:
-            case FillType::STRUCT_LIST_3D:
-                this->fill_struct_list_(field_path, builder, data_buffer);
-                break;
-            default:
-                throw parquetwriter::writer_exception(
-                    "Invalid FillType \"" +
-                    filltype_to_string(field_fill_type) + "\"");
-                break;
-        }  // switch
-    }
-
+void Writer::end_fill(const std::string& field_path) {
     // signal that this column/field was succesfully filled
     increment_field_fill_count(field_path);
 
@@ -496,8 +294,304 @@ void Writer::fill(const std::string& field_path,
     check_row_complete();
 }
 
-field_buffer_t Writer::to_struct(const std::string& field_path,
-                                 const struct_t& field_map) {
+void Writer::fill(const std::string& field_path, const value_t& data_value) {
+    auto field_fill_type = _expected_fields_filltype_map.at(field_path);
+    bool matches_expected_column_type =
+        field_fill_type == FillType::VALUE ||
+        field_fill_type == FillType::VALUE_LIST_1D ||
+        field_fill_type == FillType::VALUE_LIST_2D ||
+        field_fill_type == FillType::VALUE_LIST_3D;
+
+    if (!matches_expected_column_type) {
+        throw parquetwriter::data_buffer_exception(
+            "Invalid FillType \"" + filltype_to_string(field_fill_type) +
+            "\" at column/field \"" + field_path + "\"");
+    }
+
+    std::string parent_column_name =
+        helpers::parent_column_name_from_field(field_path);
+    if (_column_builder_map.count(parent_column_name) == 0) {
+        throw parquetwriter::writer_exception(
+            "parent column associated with column/field \"" + field_path +
+            "\" could not be found");
+    }
+
+    auto builder = _column_builder_map.at(parent_column_name).at(field_path);
+
+    switch (field_fill_type) {
+        case FillType::VALUE:
+            this->fill_value(field_path, builder, data_value);
+            break;
+        case FillType::VALUE_LIST_1D:
+        case FillType::VALUE_LIST_2D:
+        case FillType::VALUE_LIST_3D:
+            this->fill_value_list(field_path, builder, data_value);
+            break;
+        default:
+            throw parquetwriter::writer_exception(
+                "Invalid FillType \"" + filltype_to_string(field_fill_type) +
+                "\"");
+            break;
+    }  // switch
+
+    // signal end of fill
+    end_fill(field_path);
+}
+
+void Writer::fill(const std::string& field_path,
+                  const std::vector<value_t>& struct_field_data) {
+    auto field_fill_type = _expected_fields_filltype_map.at(field_path);
+    if (field_fill_type != FillType::STRUCT) {
+        throw parquetwriter::data_buffer_exception(
+            "Invalid FillType \"" + filltype_to_string(field_fill_type) +
+            "\" at column/field \"" + field_path + "\"");
+    }
+
+    std::string parent_column_name =
+        helpers::parent_column_name_from_field(field_path);
+    if (_column_builder_map.count(parent_column_name) == 0) {
+        throw parquetwriter::writer_exception(
+            "parent column associated with column/field \"" + field_path +
+            "\" could not be found");
+    }
+
+    auto builder = _column_builder_map.at(parent_column_name).at(field_path);
+    this->fill_struct(field_path, builder, struct_field_data);
+
+    // signal end of fill
+    end_fill(field_path);
+}
+
+void Writer::fill(const std::string& field_path,
+                  const std::vector<std::vector<value_t>>& struct_list_data) {
+    auto field_fill_type = _expected_fields_filltype_map.at(field_path);
+    if (field_fill_type != FillType::STRUCT_LIST_1D) {
+        throw parquetwriter::data_buffer_exception(
+            "Invalid FillType \"" + filltype_to_string(field_fill_type) +
+            "\" at column/field \"" + field_path + "\"");
+    }
+
+    std::string parent_column_name =
+        helpers::parent_column_name_from_field(field_path);
+    if (_column_builder_map.count(parent_column_name) == 0) {
+        throw parquetwriter::writer_exception(
+            "parent column associated with column/field \"" + field_path +
+            "\" could not be found");
+    }
+
+    auto builder = _column_builder_map.at(parent_column_name).at(field_path);
+
+    auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
+    auto [depth, terminal_builder] =
+        helpers::list_builder_description(list_builder);
+    if (depth != 1) {
+        throw parquetwriter::writer_exception(
+            "Invalid ArrayBuilder list depth encountered for column/field \"" +
+            field_path + "\", expect: 1, got: " + std::to_string(depth) + "\"");
+    }
+
+    PARQUET_THROW_NOT_OK(list_builder->Append());
+
+    auto value_builder = list_builder->value_builder();
+    for (size_t i = 0; i < struct_list_data.size(); i++) {
+        auto struct_data = struct_list_data.at(i);
+        this->fill_struct(field_path, value_builder, struct_data);
+    }  // i
+
+    // signal end of fill
+    end_fill(field_path);
+}
+
+void Writer::fill(
+    const std::string& field_path,
+    const std::vector<std::vector<field_buffer_t>>& struct_list_data) {
+    auto field_fill_type = _expected_fields_filltype_map.at(field_path);
+    if (field_fill_type != FillType::STRUCT_LIST_2D) {
+        throw parquetwriter::data_buffer_exception(
+            "Invalid FillType \"" + filltype_to_string(field_fill_type) +
+            "\" at column/field \"" + field_path + "\"");
+    }
+
+    std::string parent_column_name =
+        helpers::parent_column_name_from_field(field_path);
+    if (_column_builder_map.count(parent_column_name) == 0) {
+        throw parquetwriter::writer_exception(
+            "parent column associated with column/field \"" + field_path +
+            "\" could not be found");
+    }
+
+    auto builder = _column_builder_map.at(parent_column_name).at(field_path);
+
+    auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
+    auto [depth, terminal_builder] =
+        helpers::list_builder_description(list_builder);
+    if (depth != 2) {
+        throw parquetwriter::writer_exception(
+            "Invalid ArrayBuilder list depth encountered for column/field \"" +
+            field_path + "\", expect: 2, got: " + std::to_string(depth) + "\"");
+    }
+
+    auto inner_list_builder =
+        dynamic_cast<arrow::ListBuilder*>(list_builder->value_builder());
+    auto value_builder = inner_list_builder->value_builder();
+
+    PARQUET_THROW_NOT_OK(list_builder->Append());
+
+    for (size_t i = 0; i < struct_list_data.size(); i++) {
+        PARQUET_THROW_NOT_OK(inner_list_builder->Append());
+        for (size_t j = 0; j < struct_list_data.at(i).size(); j++) {
+            auto struct_data = struct_list_data.at(i).at(j);
+            this->fill_struct(field_path, value_builder, struct_data);
+        }  // j
+    }      // i
+
+    // signal end of fill
+    end_fill(field_path);
+}
+
+void Writer::fill(const std::string& field_path,
+                  const std::vector<std::vector<std::vector<field_buffer_t>>>&
+                      struct_list_data) {
+    auto field_fill_type = _expected_fields_filltype_map.at(field_path);
+    if (field_fill_type != FillType::STRUCT_LIST_3D) {
+        throw parquetwriter::data_buffer_exception(
+            "Invalid FillType \"" + filltype_to_string(field_fill_type) +
+            "\" at column/field \"" + field_path + "\"");
+    }
+
+    std::string parent_column_name =
+        helpers::parent_column_name_from_field(field_path);
+    if (_column_builder_map.count(parent_column_name) == 0) {
+        throw parquetwriter::writer_exception(
+            "parent column associated with column/field \"" + field_path +
+            "\" could not be found");
+    }
+
+    auto builder = _column_builder_map.at(parent_column_name).at(field_path);
+
+    auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
+    auto [depth, terminal_builder] =
+        helpers::list_builder_description(list_builder);
+    if (depth != 3) {
+        throw parquetwriter::writer_exception(
+            "Invalid ArrayBuilder list depth encountered for column/field \"" +
+            field_path + "\", expect: 2, got: " + std::to_string(depth) + "\"");
+    }
+
+    auto inner_list_builder =
+        dynamic_cast<arrow::ListBuilder*>(list_builder->value_builder());
+    auto inner_inner_list_builder =
+        dynamic_cast<arrow::ListBuilder*>(inner_list_builder->value_builder());
+    auto value_builder = inner_inner_list_builder->value_builder();
+
+    PARQUET_THROW_NOT_OK(list_builder->Append());
+
+    for (size_t i = 0; i < struct_list_data.size(); i++) {
+        PARQUET_THROW_NOT_OK(inner_list_builder->Append());
+        for (size_t j = 0; j < struct_list_data.at(i).size(); j++) {
+            PARQUET_THROW_NOT_OK(inner_inner_list_builder->Append());
+            for (size_t k = 0; k < struct_list_data.at(i).at(j).size(); k++) {
+                auto struct_data = struct_list_data.at(i).at(j).at(k);
+                this->fill_struct(field_path, value_builder, struct_data);
+            }  // k
+        }      // j
+    }          // i
+
+    // signal end of fill
+    end_fill(field_path);
+}
+
+void Writer::fill(const std::string& field_path,
+                  const field_map_t& struct_field_map) {
+    auto struct_data =
+        this->field_map_to_field_buffer(field_path, struct_field_map);
+    this->fill(field_path, struct_data);
+}
+
+void Writer::fill(const std::string& field_path,
+                  const std::vector<field_map_t>& struct_field_map_list) {
+    std::vector<field_buffer_t> struct_data_list;
+    for (size_t i = 0; i < struct_field_map_list.size(); i++) {
+        struct_data_list.emplace_back(this->field_map_to_field_buffer(
+            field_path, struct_field_map_list.at(i)));
+    }
+    this->fill(field_path, struct_data_list);
+}
+
+void Writer::fill(
+    const std::string& field_path,
+    const std::vector<std::vector<field_map_t>>& struct_field_map_list) {
+    std::vector<std::vector<field_buffer_t>> struct_data_list;
+    for (size_t i = 0; i < struct_field_map_list.size(); i++) {
+        std::vector<field_buffer_t> inner_list;
+        for (size_t j = 0; j < struct_field_map_list.at(i).size(); j++) {
+            inner_list.emplace_back(this->field_map_to_field_buffer(
+                field_path, struct_field_map_list.at(i).at(j)));
+        }
+        struct_data_list.push_back(inner_list);
+    }  //
+    this->fill(field_path, struct_data_list);
+}
+
+void Writer::fill(const std::string& field_path,
+                  const std::vector<std::vector<std::vector<field_map_t>>>&
+                      struct_field_map_list) {
+    std::vector<std::vector<std::vector<field_buffer_t>>> struct_data_list;
+    for (size_t i = 0; i < struct_field_map_list.size(); i++) {
+        std::vector<std::vector<field_buffer_t>> inner_list;
+        for (size_t j = 0; j < struct_field_map_list.at(i).size(); j++) {
+            std::vector<field_buffer_t> inner_inner_list;
+            for (size_t k = 0; k < struct_field_map_list.at(i).at(j).size();
+                 k++) {
+                inner_inner_list.emplace_back(this->field_map_to_field_buffer(
+                    field_path, struct_field_map_list.at(i).at(j).at(k)));
+            }  // k
+            inner_list.push_back(inner_inner_list);
+        }  // j
+        struct_data_list.push_back(inner_list);
+    }  // i
+    this->fill(field_path, struct_data_list);
+}
+
+void Writer::fill_struct(const std::string& field_path,
+                         arrow::ArrayBuilder* builder,
+                         const std::vector<value_t>& struct_field_data) {
+    auto struct_builder = dynamic_cast<arrow::StructBuilder*>(builder);
+    auto [num_fields_total, num_fields_nonstruct] =
+        helpers::field_nums_from_struct(struct_builder, field_path);
+
+    if (struct_field_data.size() != num_fields_nonstruct) {
+        throw parquetwriter::data_buffer_exception(
+            "Invalid number of data elements provided for struct column/field "
+            "\"" +
+            field_path + "\", expect: " + std::to_string(num_fields_nonstruct) +
+            ", got: " + std::to_string(struct_field_data.size()));
+    }
+
+    PARQUET_THROW_NOT_OK(struct_builder->Append());
+
+    auto struct_type = struct_builder->type();
+    size_t data_idx = 0;
+    for (size_t ifield = 0; ifield < num_fields_total; ifield++) {
+        auto field_builder = struct_builder->child_builder(ifield).get();
+        auto field_type = field_builder->type();
+        auto field_name = struct_type->field(ifield)->name();
+
+        if (data_idx >= struct_field_data.size()) {
+            break;
+        }
+
+        if (helpers::builder_is_struct_type(field_builder)) continue;
+
+        std::string field_path_name = field_path + "." + field_name;
+        this->fill_value(field_path_name, field_builder,
+                         struct_field_data.at(data_idx));
+        data_idx++;
+    }  // ifield
+}
+
+field_buffer_t Writer::field_map_to_field_buffer(const std::string& field_path,
+                                                 const field_map_t& field_map) {
     std::vector<std::string> ordered_fields =
         this->struct_fill_order(field_path);
     field_buffer_t ordered_struct_data;
@@ -511,64 +605,6 @@ field_buffer_t Writer::to_struct(const std::string& field_path,
         ordered_struct_data.push_back(field_map.at(expected_field_name));
     }
     return ordered_struct_data;
-}
-
-void Writer::fill_struct(
-    const std::string& field_path,
-    const std::map<std::string, value_t>& struct_field_map) {
-    auto ordered_struct_data = this->to_struct(field_path, struct_field_map);
-    this->fill(field_path, {ordered_struct_data});
-}
-
-void Writer::fill_struct_list(
-    const std::string& field_path,
-    const std::vector<std::map<std::string, value_t>>& struct_field_map_vec) {
-    struct_list1d struct_list_data;
-    for (size_t i = 0; i < struct_field_map_vec.size(); i++) {
-        auto ordered_struct_data =
-            this->to_struct(field_path, struct_field_map_vec.at(i));
-        struct_list_data.push_back(ordered_struct_data);
-    }  // i
-    this->fill(field_path, {struct_list_data});
-}
-
-void Writer::fill_struct_list(
-    const std::string& field_path,
-    const std::vector<std::vector<std::map<std::string, value_t>>>&
-        struct_field_map_vec) {
-    struct_list2d struct_list_data;
-    for (size_t i = 0; i < struct_field_map_vec.size(); i++) {
-        std::vector<field_buffer_t> inner_data;
-        for (size_t j = 0; j < struct_field_map_vec.at(i).size(); j++) {
-            auto ordered_struct_data =
-                this->to_struct(field_path, struct_field_map_vec.at(i).at(j));
-            inner_data.push_back(ordered_struct_data);
-        }  // j
-        struct_list_data.push_back(inner_data);
-    }  // i
-    this->fill(field_path, {struct_list_data});
-}
-
-void Writer::fill_struct_list(
-    const std::string& field_path,
-    const std::vector<std::vector<std::vector<std::map<std::string, value_t>>>>&
-        struct_field_map_vec) {
-    struct_list3d struct_list_data;
-    for (size_t i = 0; i < struct_field_map_vec.size(); i++) {
-        std::vector<std::vector<field_buffer_t>> inner_data;
-        for (size_t j = 0; j < struct_field_map_vec.at(i).size(); j++) {
-            std::vector<field_buffer_t> inner_inner_data;
-            for (size_t k = 0; k < struct_field_map_vec.at(i).at(j).size();
-                 k++) {
-                auto ordered_struct_data = this->to_struct(
-                    field_path, struct_field_map_vec.at(i).at(j).at(k));
-                inner_inner_data.push_back(ordered_struct_data);
-            }  // k
-            inner_data.push_back(inner_inner_data);
-        }  // j
-        struct_list_data.push_back(inner_data);
-    }  // i
-    this->fill(field_path, {struct_list_data});
 }
 
 std::vector<std::string> Writer::struct_fill_order(

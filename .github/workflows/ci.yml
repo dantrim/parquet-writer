@@ -86,8 +86,12 @@ jobs:
         echo "Running basic-example"
         ./basic-example
         tree
-        echo "Running struct-example"
-        ./struct-example
+        echo "Running struct-map-example"
+        ./struct-map-example
+        tree
+        echo "Running struct-buffer-example"
+        ./struct-buffer-example
+        tree
         popd
 
     - name: Install Python runtime dependencies

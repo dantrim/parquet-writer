@@ -189,56 +189,56 @@ int main(int argc, char* argv[]) {
     //
     for (size_t irow = 0; irow < 10; irow++) {
         // basic data types
-        writer.fill("col0", {col0_data});
-        writer.fill("col1", {col1_data});
-        writer.fill("col2", {col2_data});
-        writer.fill("col3", {col3_data});
-        writer.fill("col4", {col4_data});
-        writer.fill("col5", {col5_data});
-        writer.fill("col6", {col6_data});
-        writer.fill("col7", {col7_data});
-        writer.fill("col8", {col8_data});
-        writer.fill("col9", {col9_data});
-        writer.fill("col10", {col10_data});
+        writer.fill("col0", col0_data);
+        writer.fill("col1", col1_data);
+        writer.fill("col2", col2_data);
+        writer.fill("col3", col3_data);
+        writer.fill("col4", col4_data);
+        writer.fill("col5", col5_data);
+        writer.fill("col6", col6_data);
+        writer.fill("col7", col7_data);
+        writer.fill("col8", col8_data);
+        writer.fill("col9", col9_data);
+        writer.fill("col10", col10_data);
 
         // one-dimensional lists
-        writer.fill("col11", {col11_data});
-        writer.fill("col12", {col12_data});
-        writer.fill("col13", {col13_data});
-        writer.fill("col14", {col14_data});
-        writer.fill("col15", {col15_data});
-        writer.fill("col16", {col16_data});
-        writer.fill("col17", {col17_data});
-        writer.fill("col18", {col18_data});
-        writer.fill("col19", {col19_data});
-        writer.fill("col20", {col20_data});
-        writer.fill("col21", {col21_data});
+        writer.fill("col11", col11_data);
+        writer.fill("col12", col12_data);
+        writer.fill("col13", col13_data);
+        writer.fill("col14", col14_data);
+        writer.fill("col15", col15_data);
+        writer.fill("col16", col16_data);
+        writer.fill("col17", col17_data);
+        writer.fill("col18", col18_data);
+        writer.fill("col19", col19_data);
+        writer.fill("col20", col20_data);
+        writer.fill("col21", col21_data);
 
         // two-dimensional lists
-        writer.fill("col22", {col22_data});
-        writer.fill("col23", {col23_data});
-        writer.fill("col24", {col24_data});
-        writer.fill("col25", {col25_data});
-        writer.fill("col26", {col26_data});
-        writer.fill("col27", {col27_data});
-        writer.fill("col28", {col28_data});
-        writer.fill("col29", {col29_data});
-        writer.fill("col30", {col30_data});
-        writer.fill("col31", {col31_data});
-        writer.fill("col32", {col32_data});
+        writer.fill("col22", col22_data);
+        writer.fill("col23", col23_data);
+        writer.fill("col24", col24_data);
+        writer.fill("col25", col25_data);
+        writer.fill("col26", col26_data);
+        writer.fill("col27", col27_data);
+        writer.fill("col28", col28_data);
+        writer.fill("col29", col29_data);
+        writer.fill("col30", col30_data);
+        writer.fill("col31", col31_data);
+        writer.fill("col32", col32_data);
 
         // three-dimensional lists
-        writer.fill("col33", {col33_data});
-        writer.fill("col34", {col34_data});
-        writer.fill("col35", {col35_data});
-        writer.fill("col36", {col36_data});
-        writer.fill("col37", {col37_data});
-        writer.fill("col38", {col38_data});
-        writer.fill("col39", {col39_data});
-        writer.fill("col40", {col40_data});
-        writer.fill("col41", {col41_data});
-        writer.fill("col42", {col42_data});
-        writer.fill("col43", {col43_data});
+        writer.fill("col33", col33_data);
+        writer.fill("col34", col34_data);
+        writer.fill("col35", col35_data);
+        writer.fill("col36", col36_data);
+        writer.fill("col37", col37_data);
+        writer.fill("col38", col38_data);
+        writer.fill("col39", col39_data);
+        writer.fill("col40", col40_data);
+        writer.fill("col41", col41_data);
+        writer.fill("col42", col42_data);
+        writer.fill("col43", col43_data);
 
         // finish handling the current row
         writer.end_row();
