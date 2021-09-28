@@ -185,8 +185,7 @@ and `list[float]`, respectively, is done as follows:
 auto file_layout = R"(
   "fields": [
     {
-      "name": "my_struct",
-      "type": "struct",
+      "name": "my_struct", "type": "struct",
       "fields": [
                   {"name": "field0", "type": "int32"},
                   {"name": "field1", "type": "float"},
@@ -328,14 +327,16 @@ Specifying this data structure in JSON follows from the above. For example,
 auto file_layout = R"(
   "fields": [
     {"name": "outer_struct", "type": "struct",
-                             "fields":[
-                               {"name": "field0", "type": "int32"},
-                               {"name": "inner_struct", "type": "struct",
-                                                        "fields":[
-                                                          {"name": "inner_field0", "type": "float"},
-                                                          {"name": "inner_field1", "type": "int32"}
-                                                        ]}
-                             ]}
+     "fields":[
+                {"name": "field0", "type": "int32"},
+                {"name": "inner_struct", "type": "struct",
+                 "fields":[
+                            {"name": "inner_field0", "type": "float"},
+                            {"name": "inner_field1", "type": "int32"}
+                          ]
+                }
+              ]
+    }
   ]
 )"_json;
 ```
