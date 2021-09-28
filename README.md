@@ -210,10 +210,10 @@ that are used for filling the `struct` data type:
  
 The `field_map_t` type is a `typedef` for `std::map<std::string, parquetwriter::value_t>`, where
 `parquetwriter::value_t` refers to any of the non-`struct` [supported types](#supported-data-types).
-
-The `field_buffer_t` type is a `typedef` for `std::vector<parquetwriter::value_t>`.
 The `field_map_t` allows users to fill `struct`-type columns without worrying about
 the order of the `struct`'s fields.
+
+The `field_buffer_t` type is a `typedef` for `std::vector<parquetwriter::value_t>`.
 **When using the `field_buffer_t` type to fill `struct`-type columns, the user must
 provide the data values in the same order that they appear in the JSON layout
 for the associated `struct`**.
