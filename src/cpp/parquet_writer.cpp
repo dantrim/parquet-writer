@@ -497,7 +497,7 @@ void Writer::fill(const std::string& field_path,
 
 void Writer::fill(const std::string& field_path,
         const field_map_t& struct_field_map) {
-    auto struct_data = this->to_struct(field_path, struct_field_map);
+    auto struct_data = this->field_map_to_field_buffer(field_path, struct_field_map);
     this->fill(field_path, struct_data);
 }
 
@@ -505,7 +505,7 @@ void Writer::fill(const std::string& field_path,
         const std::vector<field_map_t>& struct_field_map_list) {
     std::vector<field_buffer_t> struct_data_list;
     for(size_t i = 0; i < struct_field_map_list.size(); i++) {
-        struct_data_list.emplace_back(this->to_struct(field_path, struct_field_map_list.at(i)));
+        struct_data_list.emplace_back(this->field_map_to_field_buffer(field_path, struct_field_map_list.at(i)));
     }
     this->fill(field_path, struct_data_list);
 }
@@ -516,7 +516,7 @@ void Writer::fill(const std::string& field_path,
     for(size_t i = 0; i < struct_field_map_list.size(); i++) {
         std::vector<field_buffer_t> inner_list;
         for(size_t j = 0; j < struct_field_map_list.at(i).size(); j++) {
-            inner_list.emplace_back(this->to_struct(field_path, struct_field_map_list.at(i).at(j)));
+            inner_list.emplace_back(this->field_map_to_field_buffer(field_path, struct_field_map_list.at(i).at(j)));
         }
         struct_data_list.push_back(inner_list);
     } //
@@ -531,7 +531,7 @@ void Writer::fill(const std::string& field_path,
         for(size_t j = 0; j < struct_field_map_list.at(i).size(); j++) {
             std::vector<field_buffer_t> inner_inner_list;
             for(size_t k = 0; k < struct_field_map_list.at(i).at(j).size(); k++) {
-                inner_inner_list.emplace_back(this->to_struct(field_path, struct_field_map_list.at(i).at(j).at(k)));
+                inner_inner_list.emplace_back(this->field_map_to_field_buffer(field_path, struct_field_map_list.at(i).at(j).at(k)));
             } // k
             inner_list.push_back(inner_inner_list);
         } // j
@@ -574,7 +574,7 @@ void Writer::fill_struct(const std::string& field_path,
 
 }
 
-field_buffer_t Writer::to_struct(const std::string& field_path,
+field_buffer_t Writer::field_map_to_field_buffer(const std::string& field_path,
                                  const field_map_t& field_map) {
     std::vector<std::string> ordered_fields =
         this->struct_fill_order(field_path);

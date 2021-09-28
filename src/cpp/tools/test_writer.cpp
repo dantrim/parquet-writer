@@ -112,7 +112,7 @@ int main(int argc, char* argv[]) {
     double col13_field_bar = 103.7;
     pw::field_buffer_t col13_data{col13_field_foo, col13_field_bar};
     // col14
-    pw::struct_list1d col14_data;
+    std::vector<pw::field_buffer_t> col14_data;
     for (size_t i = 0; i < 5; i++) {
         pw::field_buffer_t col14_element_field_data;
         uint32_t col14_field_faz = 32;
@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
         {{19}, {12, 13, 14}, {52, 57, 99, 0}, {22}}};
 
     // col18
-    pw::struct_list2d col18_data;
+    std::vector<std::vector<pw::field_buffer_t>> col18_data;
     for (size_t i = 0; i < 3; i++) {
         std::vector<pw::field_buffer_t> inner_data;
         for (size_t j = 0; j < (i + 1); j++) {
@@ -148,7 +148,7 @@ int main(int argc, char* argv[]) {
     }  // i
 
     // col19
-    pw::struct_list3d col19_data;
+    std::vector<std::vector<std::vector<pw::field_buffer_t>>> col19_data;
     for (size_t i = 0; i < 5; i++) {
         std::vector<std::vector<pw::field_buffer_t>> inner3_data;
         for (size_t j = 0; j < 3; j++) {
@@ -168,26 +168,27 @@ int main(int argc, char* argv[]) {
 
     // now fill the output table
     for (size_t ievent = 0; ievent < 10; ievent++) {
-        writer.fill("col0", {col0_data});
-        writer.fill("col1", {col1_data});
-        writer.fill("col2", {col2_data});
-        writer.fill("col3", {col3_data});
-        writer.fill("col4", {col4_data});
-        writer.fill("col5", {col5_data});
-        writer.fill("col6", {col6_data});
-        writer.fill("col7", {col7_data});
-        writer.fill("col8", {col8_data});
-        writer.fill("col9", {col9_data});
-        writer.fill("col10", {col10_data});
-        writer.fill("col11", {col11_data});
-        writer.fill("col12", {col12_data});
-        writer.fill("col13", {col13_data});
-        writer.fill("col14", {col14_data});
-        writer.fill("col15", {col15_data});
-        writer.fill("col16", {col16_data});
-        writer.fill("col17", {col17_data});
-        writer.fill("col18", {col18_data});
-        writer.fill("col19", {col19_data});
+        writer.fill("col0", col0_data);
+        writer.fill("col1", col1_data);
+        writer.fill("col2", col2_data);
+        writer.fill("col3", col3_data);
+        writer.fill("col4", col4_data);
+        writer.fill("col5", col5_data);
+        writer.fill("col6", col6_data);
+        writer.fill("col7", col7_data);
+        writer.fill("col8", col8_data);
+        writer.fill("col9", col9_data);
+        writer.fill("col10", col10_data);
+        writer.fill("col11", col11_data);
+        writer.fill("col12", col12_data);
+        writer.fill("col13", col13_data);
+        writer.fill("col14", col14_data);
+        writer.fill("col15", col15_data);
+        writer.fill("col16", col16_data);
+        writer.fill("col17", col17_data);
+        writer.fill("col18", col18_data);
+        writer.fill("col19", col19_data);
+        writer.end_row();
     }
 
     writer.finish();

@@ -57,8 +57,6 @@ class Writer {
     void set_flush_rule(const FlushRule& rule, const uint32_t& n);
     void set_pagesize(const uint32_t& pagesize) { _data_pagesize = pagesize; }
 
-    field_buffer_t to_struct(const std::string& field_path,
-                             const field_map_t& struct_field_map);
 
 
     // handles the filling of all value_types and list[<value_type>] filling
@@ -150,6 +148,8 @@ class Writer {
             const value_t& data_buffer);
     void fill_struct(const std::string& field_path,
             arrow::ArrayBuilder* builder, const std::vector<value_t>& struct_field_data);
+    field_buffer_t field_map_to_field_buffer(const std::string& field_path,
+                             const field_map_t& struct_field_map);
 
     std::pair<FillType, arrow::ArrayBuilder*> initialize_fill(const std::string& field_path, const FillType& expected_filltype);
 
