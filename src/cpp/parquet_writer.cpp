@@ -497,7 +497,7 @@ void Writer::fill(const std::string& field_path,
 }
 
 field_buffer_t Writer::to_struct(const std::string& field_path,
-                                 const field_map_t& field_map) {
+                                 const struct_map_t& field_map) {
     std::vector<std::string> ordered_fields =
         this->struct_fill_order(field_path);
     field_buffer_t ordered_struct_data;
