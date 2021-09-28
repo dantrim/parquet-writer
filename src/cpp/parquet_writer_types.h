@@ -71,7 +71,9 @@ typedef std::variant<buffer_value_t, buffer_value_vec_t, buffer_value_vec2d_t,
 typedef std::vector<types::buffer_t> struct_list3d;
 typedef std::vector<types::buffer_t> struct_list2d;
 typedef std::vector<types::buffer_t> struct_list1d;
-typedef types::buffer_value_vec_t field_buffer_t;
+
+// these are the only types we should have
 typedef types::buffer_value_t value_t;
+typedef types::buffer_value_vec_t field_buffer_t;
 typedef std::map<std::string, value_t> struct_t;
 };  // namespace parquetwriter
