@@ -93,21 +93,6 @@ Fields of `struct` type can have fields that are basic value types
 (e.g. the integer, floating point, and logical data types)
 as well as 1-, 2-, and 3-dimensional lists of these basic value types.
 
-### Struct Field Constraints 
-
-The fields of `struct` type can also be of `struct`-type or `list[...[struct]]`-type, so long as these
-sub-`struct`-type fields do not contain fields that are themselves
-of `struct` type.
-That is, **there can only be one level of sub-`struct` nesting**:
-  * `struct`-type elements of lists of structs cannot have fields that are of `struct`-type
-  * `struct`-type top-level columns can have fields that are themselves of `struct`-type, so long as these sub-`struct`s do not themselves have fields that are of `struct`-type
-
-This constraint on the level of nesting of sub-`struct`-type fields is for simplicity.
-Additionally, pretty much any complex data structure can be made to fit
-this constraint through clever flattening of the more deeply nested sub-`struct`-type fields.
-
-Examples illustrating these constraints are provided in the [Examples section](#examples).
-
 ## Parquet File Layout Specification
 
 Specifying the desired layout of a given Parquet file
@@ -137,9 +122,9 @@ typed data structures.
 
 Complete examples can be found in the [Examples](#examples) section.
 
-### Lists of Basic Data Types
+### Lists of Value Types
 
-Storing one, two, and three dimensional lists of the [basic types](#supported-data-types) is supported
+Storing one, two, and three dimensional lists of the [value types](#supported-data-types) is supported
 by `parquet-writer`. Specifying lists of these types is done via
 the JSON layout provided to a given `parquetwriter::Writer` instance.
 
@@ -191,7 +176,7 @@ writer.fill("my_3d_list", {my_3d_list_data});
 Storing complex data structures with
 any number of named fields of possibly different data type (i.e. a `C++` `struct`) is possible.
 These correspond to Parquet's [StructType](https://arrow.apache.org/docs/cpp/api/datatype.html#_CPPv4N5arrow10StructTypeE).
-Specifying these complex data types is done via the `struct` type.
+Specifying these complex data types is done via the `struct` type in the JSON layout.
 
 For example, storing a structure named `my_struct` having three fields named `field0`,
 `field1`, and `field2` of data types `int32`, `float`,
@@ -217,46 +202,30 @@ in the output `struct` data structure.
 #### Filling Struct Data Types
 
 Since the `struct` type implies a complex data structure with arbitrarily-typed nested fields,
-there is a convenience type that is used for filling this data type: `parquetwriter::struct_t`.
-An instance of `parquetwriter::struct_t` can be treated as an `std::vector`, but one that
-holds any of the [supported types](#supported-data-types).
+there is a convenience type that is used for filling this data type: `parquetwriter::struct_t`,
+which is simply an alias of `std::map<std::string, pw::value_t>` where `pw::value_t` is
+an instance of any of the non-`struct` [supported types](#supported-data-types).
+Instead of calling `writer.fill(...)`, one then calls `writer.fill_struct(...)`.
 For example, one would fill the three-field structure `my_struct` from above as follows:
 ```c++
 namespace pw = parquetwriter;
 int32_t field0_data = 42;
 float field1_data = 10.5;
 std::vector<float> field2_data{1.2, 2.3, 3.4};
-parquetwriter::struct_t my_struct_data{field0_data, field1_data, field2_data};
-/*
- // could also do:
- namespace pw = parquetwriter;
- pw::struct_t my_struct_data;
- my_struct_data.push_back(field0_data);
- my_struct_data.push_back(field1_data);
- my_struct_data.push_back(field2_data);
-*/
-writer.fill("my_struct", {my_struct_data});
+pw::struct_t my_struct_data {
+  {"field0", field0_data},
+  {"field1", field1_data},
+  {"field2", field2_data}
+};
+writer.fill_struct("my_struct", {my_struct_data});
 ```
-
-#### Struct DataType Fill Ordering
-
-The ordering of the elements in an instance of `parquetwriter::struct_t` must
-absolutely follow the order in which they are specified in the JSON specification
-of the corresponding `struct` type. That is, doing
-```c++
-pw::struct_t my_struct_bad_data{field2_data, field0_data, field1_data};
-```
-instead of what is shown in the previous code snippet would lead to an error since
-the file layout for the data structure `my_struct` expects data types ordered
-as `int32, float, list[float]` but `my_struct_bad_data` fills the `parquetwriter::struct_t`
-with data ordered as `list[float], int32, float`.
 
 ### Lists of Struct DataType
 
-There are convenience types for filling columns containing data types that are nested
-lists of `struct` typed objects: `parquetwriter::struct_list1d`, `parquetwriter::struct_list2d`,
-and `parquetwriter::struct_list3d`.
-
+Lists of `struct`-type columns and fields are supported, and can be constructed
+by building up `std::vector`'s of `pw::struct_t` elements
+and using the corresponding `fill_struct_list1d`, `fill_struct_list2d`,
+or `fill_struct_list3d` methods.
 Examples of filling one-, two-, and three-dimensional lists containing `struct` typed
 objects with three `float` typed fields are below,
 
@@ -270,39 +239,52 @@ float field2_data = 126.0;
 
 // one-dimensional case: list[struct{float, float, float}]
 pw::struct_list1d my_1d_structlist_data;
+std::vector<pw::struct_t> my_1d_structlist_data;
 for(...) {
-  pw::struct_t struct_data{field0_data, field1_data, field2_data};
+  pw::struct_t struct_data{
+    {"field0", field0_data},
+    {"field1", field1_data},
+    {"field2", field2_data}
+  };
   my_1d_structlist_data.push_back(struct_data);
 }
-writer.fill("my_1d_structlist", {my_1d_structlist_data});
+writer.fill_struct_list1d("my_1d_structlist", {my_1d_structlist_data});
 
 // two-dimensional case: list[list[struct{float, float, float}]]
-pw::struct_list2d my_2d_structlist_data;
+std::vector<std::vector<pw::struct_t>> my_2d_structlist_data;
 for(...) {
   std::vector<pw::struct_t> inner_list_data;
   for(...) {
-    pw::struct_t struct_data{field0_data, field1_data, field2_data};
+    pw::struct_t struct_data{
+      {"field0", field0_data},
+      {"field1", field1_data},
+      {"field2", field2_data}
+    };
     inner_list_data.push_back(struct_data);
   }
   my_2d_structlist_data.push_back(inner_list_data);
 }
-writer.fill("my_2d_structlist", {my_2d_structlist_data});
+writer.fill_struct_list2d("my_2d_structlist", {my_2d_structlist_data});
 
 // three-dimensional case: list[list[list[struct{float, float, float}]]]
-pw::struct_list3d my_3d_structlist_data;
+std::vector<std::vector<std::vector<pw::struct_t>>> my_3d_structlist_data;
 for(...) {
   std::vector<std::vector<pw::struct_t>> inner_list_data;
   for(...) {
     std::vector<pw::struct_t> inner_inner_list_data;
     for(...) {
-      pw::struct_t struct_data{field1_data, field2_data, field3_data};
+      pw::struct_t struct_data{
+        {"field0", field0_data},
+        {"field1", field1_data},
+        {"field2", field2_data}
+      };
       inner_inner_list_data.push_back(struct_data);
     }
     inner_list_data.push_back(inner_inner_list_data);
   }
   my_3d_structlist_data.push_back(inner_list_data);
 }
-writer.fill("my_3d_structlist", {my_3d_structlist_data});
+writer.fill_struct_list3d("my_3d_structlist", {my_3d_structlist_data});
 ```
 
 Further examples illustrating `struct` data types can be found in [examples/struct-example](examples/cpp/struct_example.cpp).
@@ -336,26 +318,32 @@ The above specifies a column named `outer_struct` which contains the following f
 
 Filling the above `struct` column that has an internal `struct` field would be done as follows,
 ```C++
+namespace pw = parquetwriter;
 // data for the non-struct fields of the struct "outer_struct" 
 int32_t field0_data = 42;
-parquetwriter::struct_t outer_struct_data{field0_data};
+pw::struct_t outer_struct_data{
+  {"field0", field0_data}
+};
 
 // data for the non-struct fields of the internal struct "inner_struct"
 float inner_field0_data = 42.5;
 int32_t inner_field1_data = 42;
-parquetwriter::struct_t inner_struct_data{inner_field0_data, inner_field1_data};
+pw::struct_t inner_struct_data{
+  {"inner_field0", inner_field0_data},
+  {"inner_field1", inner_field1_data}
+};
 
 // write the data to the Parquet file
-writer.fill("outer_struct", {outer_struct_data});
-writer.fill("outer_struct.inner_struct", {inner_struct_data});
+writer.fill_struct("outer_struct", {outer_struct_data});
+writer.fill_struct("outer_struct.inner_struct", {inner_struct_data});
 ```
 
 As can be seen, for each level of `struct` nesting one provides a `parquetwriter::struct_t` containing the data
 for all non-`struct` fields. Internal `struct` fields are then provided their
-`parquetwriter::struct_t` using the dot (`.`) notation in the call to `parquetwriter::Writer::fill`:
+`parquetwriter::struct_t` using the dot (`.`) notation in the call to `parquetwriter::Writer::fill_struct*`:
 `<outer_struct_level>.<inner_struct_level>`.
 
-Note that the same number of calls to `parquetwriter::Writer::fill` must be made for each of the
+Note that the same number of calls to `parquetwriter::Writer::fill_struct*` must be made for each of the
 nested structs, otherwise there will be a mismatch in the sizes (number of rows) of columns
 in the output Parquet file, which leads to an error.
 
