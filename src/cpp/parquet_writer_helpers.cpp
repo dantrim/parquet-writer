@@ -150,12 +150,13 @@ fill_field_builder_map_from_columns(
 
         // get the names of any sub-struct typed fields of structures
         if (column_fill_type == parquetwriter::FillType::STRUCT) {
-            auto [names, struct_type_builders] =
+            auto [names, field_buffer_type_builders] =
                 struct_type_field_builders(column_builder, column_name);
-            for (size_t i = 0; i < struct_type_builders.size(); i++) {
+            for (size_t i = 0; i < field_buffer_type_builders.size(); i++) {
                 std::stringstream sub_name;
                 sub_name << column_name << "." << names.at(i);
-                column_builders[sub_name.str()] = struct_type_builders.at(i);
+                column_builders[sub_name.str()] =
+                    field_buffer_type_builders.at(i);
                 field_names.push_back(sub_name.str());
             }
         }
@@ -165,14 +166,15 @@ fill_field_builder_map_from_columns(
     return std::make_pair(field_names, out);
 }
 
-parquetwriter::struct_t struct_from_data_buffer_element(
+parquetwriter::field_buffer_t struct_from_data_buffer_element(
     const parquetwriter::types::buffer_t& data, const std::string& field_name) {
-    struct_t struct_data;
+    field_buffer_t struct_data;
     try {
-        struct_data = std::get<struct_t>(data);
+        struct_data = std::get<field_buffer_t>(data);
     } catch (std::exception& e) {
         throw parquetwriter::data_buffer_exception(
-            "Cannot parse struct_t from provided data buffer for column/field "
+            "Cannot parse field_buffer_t from provided data buffer for "
+            "column/field "
             "\"" +
             field_name + "\"");
     }
@@ -390,13 +392,13 @@ std::vector<std::string> struct_field_order_from_builder(
             "\" is not of \"struct\" type");
     }
 
-    auto struct_type = struct_builder->type();
+    auto field_buffer_type = struct_builder->type();
 
     unsigned n_fields = struct_builder->num_children();
     std::vector<std::string> non_struct_fields;
     for (size_t ifield = 0; ifield < n_fields; ifield++) {
         auto child_field_builder = struct_builder->child_builder(ifield).get();
-        auto child_field_name = struct_type->field(ifield)->name();
+        auto child_field_name = field_buffer_type->field(ifield)->name();
         if (builder_is_struct_type(child_field_builder)) continue;
         non_struct_fields.push_back(child_field_name);
     }  // ifield
