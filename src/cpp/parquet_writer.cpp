@@ -272,7 +272,7 @@ void Writer::set_flush_rule(const FlushRule& rule, const uint32_t& n) {
 
 void Writer::fill_value(const std::string& field_name,
                         arrow::ArrayBuilder* builder,
-                        const std::vector<types::buffer_t>& data_buffer) {
+                        const std::vector<value_t>& data_buffer) {
     if (data_buffer.size() != 1) {
         throw parquetwriter::data_buffer_exception(
             "Invalid data buffer shape for column/field \"" + field_name +
@@ -281,7 +281,7 @@ void Writer::fill_value(const std::string& field_name,
     }
 
     auto data = data_buffer.at(0);
-    if (auto val = std::get_if<types::buffer_value_t>(&data)) {
+    if (auto val = std::get_if<value_t>(&data)) {
         std::visit(internal::DataValueFillVisitor(field_name, builder), *val);
     } else {
         throw parquetwriter::data_buffer_exception(
@@ -291,7 +291,7 @@ void Writer::fill_value(const std::string& field_name,
 
 void Writer::fill_value_list(const std::string& field_name,
                              arrow::ArrayBuilder* builder,
-                             const std::vector<types::buffer_t>& data_buffer) {
+                             const std::vector<value_t>& data_buffer) {
     if (data_buffer.size() != 1) {
         throw parquetwriter::data_buffer_exception(
             "Invalid data buffer shape for column/field \"" + field_name +
@@ -305,7 +305,7 @@ void Writer::fill_value_list(const std::string& field_name,
 
 void Writer::fill_struct_list_(
     const std::string& field_name, arrow::ArrayBuilder* builder,
-    const std::vector<types::buffer_t>& data_buffer) {
+    const std::vector<value_t>& data_buffer) {
     auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
     auto [depth, terminal_builder] =
         helpers::list_builder_description(list_builder);
@@ -330,7 +330,7 @@ void Writer::fill_struct_list_(
         for (size_t i = 0; i < data_buffer.size(); i++) {
             PARQUET_THROW_NOT_OK(list_builder->Append());
             auto inner_data =
-                std::get<std::vector<field_buffer_t>>(data_buffer.at(i));
+                std::get<std::vector<value_t>>(data_buffer.at(i));
             for (size_t j = 0; j < inner_data.size(); j++) {
                 field_buffer_t struct_data =
                     helpers::struct_from_data_buffer_element(inner_data.at(j),
@@ -368,7 +368,7 @@ void Writer::fill_struct_list_(
 
 void Writer::fill_struct_(const std::string& path_name,
                           arrow::ArrayBuilder* builder,
-                          const std::vector<types::buffer_t>& data_buffer) {
+                          const std::vector<value_t>& data_buffer) {
     //
     // get the struct data
     //
@@ -421,7 +421,7 @@ void Writer::fill_struct_(const std::string& path_name,
 }
 
 void Writer::fill(const std::string& field_path,
-                  const std::vector<types::buffer_t>& data_buffer) {
+                  const std::vector<value_t>& data_buffer) {
     if (_expected_fields_filltype_map.count(field_path) == 0) {
         throw parquetwriter::writer_exception(
             "Cannot fill unknown column/field \"" + field_path + "\"");

@@ -167,7 +167,7 @@ fill_field_builder_map_from_columns(
 }
 
 parquetwriter::field_buffer_t struct_from_data_buffer_element(
-    const parquetwriter::types::buffer_t& data, const std::string& field_name) {
+    const value_t& data, const std::string& field_name) {
     field_buffer_t struct_data;
     try {
         struct_data = std::get<field_buffer_t>(data);

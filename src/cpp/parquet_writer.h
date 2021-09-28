@@ -61,7 +61,7 @@ class Writer {
                              const struct_t& struct_field_map);
 
     void fill(const std::string& field_path,
-              const std::vector<types::buffer_t>& data_buffer);
+              const std::vector<value_t>& data_buffer);
 
     void fill_struct(const std::string& field_path,
                      const std::map<std::string, value_t>& struct_buffer);
@@ -138,16 +138,16 @@ class Writer {
 
     std::vector<std::string> struct_fill_order(const std::string& field_path);
     void fill_value(const std::string& field_name, arrow::ArrayBuilder* builder,
-                    const std::vector<types::buffer_t>& data_buffer);
+                    const std::vector<value_t>& data_buffer);
     void fill_value_list(const std::string& field_name,
                          arrow::ArrayBuilder* builder,
-                         const std::vector<types::buffer_t>& data_buffer);
+                         const std::vector<value_t>& data_buffer);
     void fill_struct_(const std::string& field_name,
                       arrow::ArrayBuilder* builder,
-                      const std::vector<types::buffer_t>& data_buffer);
+                      const std::vector<value_t>& data_buffer);
     void fill_struct_list_(const std::string& field_name,
                            arrow::ArrayBuilder* builder,
-                           const std::vector<types::buffer_t>& data_buffer);
+                           const std::vector<value_t>& data_buffer);
 
     void increment_field_fill_count(const std::string& field_path);
     void check_row_complete();
