@@ -370,7 +370,8 @@ writer.fill("outer_struct", outer_struct_data);
 writer.fill("outer_struct.inner_struct", inner_struct_data);
 ```
 
-As can be seen, for each level of `struct` nesting one provides a `parquetwriter::struct_t` containing the data
+As can be seen, for each level of `struct` nesting one provides a `parquetwriter::field_map_t`
+(or `parquetwriter::field_buffer_t`) containing the data
 for all non-`struct` fields. Internal `struct` fields are filled
 using the dot (`.`) notation in the call to `parquetwriter::Writer::fill`:
 `<outer_struct_level>.<inner_struct_level>`.
