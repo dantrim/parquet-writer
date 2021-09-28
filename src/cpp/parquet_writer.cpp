@@ -497,7 +497,7 @@ void Writer::fill(const std::string& field_path,
 }
 
 field_buffer_t Writer::to_struct(const std::string& field_path,
-                                 const struct_map_t& field_map) {
+                                 const struct_t& field_map) {
     std::vector<std::string> ordered_fields =
         this->struct_fill_order(field_path);
     field_buffer_t ordered_struct_data;
@@ -520,7 +520,7 @@ void Writer::fill_struct(
     this->fill(field_path, {ordered_struct_data});
 }
 
-void Writer::fill_struct_list1d(
+void Writer::fill_struct_list(
     const std::string& field_path,
     const std::vector<std::map<std::string, value_t>>& struct_field_map_vec) {
     struct_list1d struct_list_data;
@@ -532,7 +532,7 @@ void Writer::fill_struct_list1d(
     this->fill(field_path, {struct_list_data});
 }
 
-void Writer::fill_struct_list2d(
+void Writer::fill_struct_list(
     const std::string& field_path,
     const std::vector<std::vector<std::map<std::string, value_t>>>&
         struct_field_map_vec) {
@@ -549,7 +549,7 @@ void Writer::fill_struct_list2d(
     this->fill(field_path, {struct_list_data});
 }
 
-void Writer::fill_struct_list3d(
+void Writer::fill_struct_list(
     const std::string& field_path,
     const std::vector<std::vector<std::vector<std::map<std::string, value_t>>>>&
         struct_field_map_vec) {

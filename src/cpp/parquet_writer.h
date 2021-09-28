@@ -58,21 +58,21 @@ class Writer {
     void set_pagesize(const uint32_t& pagesize) { _data_pagesize = pagesize; }
 
     field_buffer_t to_struct(const std::string& field_path,
-                             const struct_map_t& struct_field_map);
+                             const struct_t& struct_field_map);
 
     void fill(const std::string& field_path,
               const std::vector<types::buffer_t>& data_buffer);
 
     void fill_struct(const std::string& field_path,
                      const std::map<std::string, value_t>& struct_buffer);
-    void fill_struct_list1d(
+    void fill_struct_list(
         const std::string& field_path,
         const std::vector<std::map<std::string, value_t>>& struct_buffer);
-    void fill_struct_list2d(
+    void fill_struct_list(
         const std::string& field_path,
         const std::vector<std::vector<std::map<std::string, value_t>>>&
             struct_buffer);
-    void fill_struct_list3d(
+    void fill_struct_list(
         const std::string& field_path,
         const std::vector<
             std::vector<std::vector<std::map<std::string, value_t>>>>&
