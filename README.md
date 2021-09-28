@@ -224,7 +224,7 @@ writer.fill_struct("my_struct", {my_struct_data});
 
 Lists of `struct`-type columns and fields are supported, and can be constructed
 by building up `std::vector`'s of `pw::struct_t` elements
-the `fill_struct_list` method.
+and calling the `fill_struct_list` method.
 Examples of filling one-, two-, and three-dimensional lists containing `struct` typed
 objects with three `float` typed fields are below,
 
