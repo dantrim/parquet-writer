@@ -122,7 +122,7 @@ typed data structures.
 
 Complete examples can be found in the [Examples](#examples) section.
 
-### Lists of Value Types
+## Lists of Value Types
 
 Storing one, two, and three dimensional lists of the [value types](#supported-data-types) is supported
 by `parquet-writer`. Specifying lists of these types is done via
@@ -171,7 +171,7 @@ std::vector<std::vector<std::vector<double>>> my_3d_list_data{
 writer.fill("my_3d_list", {my_3d_list_data});
 ```
 
-### Struct Data Types
+## Struct Data Types
 
 Storing complex data structures with
 any number of named fields of possibly different data type (i.e. a `C++` `struct`) is possible.
@@ -199,7 +199,7 @@ As can be seen, `struct` types contain an additional `fields` array, which conta
 the usual `{"name": ..., "type": ...}` objects which describe each of the fields contained
 in the output `struct` data structure.
 
-#### Filling Struct Data Types
+### Filling Struct Data Types
 
 Since the `struct` type implies a complex data structure with arbitrarily-typed nested fields,
 there is a convenience type that is used for filling this data type: `parquetwriter::struct_t`,
@@ -220,7 +220,7 @@ pw::struct_t my_struct_data {
 writer.fill_struct("my_struct", {my_struct_data});
 ```
 
-#### Lists of Struct DataType
+### Lists of Struct DataType
 
 Lists of `struct`-type columns and fields are supported, and can be constructed
 by building up `std::vector`'s of `pw::struct_t` elements
@@ -288,7 +288,7 @@ writer.fill_struct_list("my_3d_structlist", {my_3d_structlist_data});
 
 Further examples illustrating `struct` data types can be found in [examples/struct-example](examples/cpp/struct_example.cpp).
 
-#### Structs with Struct Fields
+### Structs with Struct Fields
 
 You may need to have a `struct` typed column which itself contains a field that is a `struct`.
 Specifying this data structure in JSON follows from the above. For example,
@@ -313,7 +313,7 @@ The above specifies a column named `outer_struct` which contains the following f
     * `inner_field0` with type `float`
     * `inner_field1` with type `int32`
 
-##### Filling Structs with Struct Fields
+#### Filling Structs with Struct Fields
 
 Filling the above `struct` column that has an internal `struct` field would be done as follows,
 ```C++
