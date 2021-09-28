@@ -244,6 +244,15 @@ pw::field_buffer_t my_struct_data{field0_data, field1_data, field2_data}; // ele
 };
 writer.fill("my_struct", my_struct_data);
 ```
+The two approaches will produce the same output Parquet file.
+When using the `field_map_t` approach, the `fill` method
+internally checks against the loaded layout for the specific
+`struct` instance and internally constructs a `field_buffer_t`
+with the data values in the correct order.
+Because of this extra step of having to build this
+intermediate `field_buffer_t`, the approach taking `field_map_t`
+may be less performant (but it is definitely _safer_ since
+it is immune to changes in order of fields in the JSON layout).
 
 ### Lists of Struct DataType
 
