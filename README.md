@@ -226,7 +226,7 @@ Lists of `struct`-type columns and fields are supported, and can be constructed
 by building up `std::vector`'s of `pw::struct_t` elements
 and calling the `fill_struct_list` method.
 Examples of filling one-, two-, and three-dimensional lists containing `struct` typed
-objects with three `float` typed fields are below,
+objects with three `float` typed fields are below:
 
 ```c++
 namespace pw = parquetwriter;
