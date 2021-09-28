@@ -220,7 +220,7 @@ pw::struct_t my_struct_data {
 writer.fill_struct("my_struct", {my_struct_data});
 ```
 
-### Lists of Struct DataType
+#### Lists of Struct DataType
 
 Lists of `struct`-type columns and fields are supported, and can be constructed
 by building up `std::vector`'s of `pw::struct_t` elements
@@ -288,7 +288,7 @@ writer.fill_struct_list("my_3d_structlist", {my_3d_structlist_data});
 
 Further examples illustrating `struct` data types can be found in [examples/struct-example](examples/cpp/struct_example.cpp).
 
-### Structs with Struct Fields
+#### Structs with Struct Fields
 
 You may need to have a `struct` typed column which itself contains a field that is a `struct`.
 Specifying this data structure in JSON follows from the above. For example,
@@ -313,7 +313,7 @@ The above specifies a column named `outer_struct` which contains the following f
     * `inner_field0` with type `float`
     * `inner_field1` with type `int32`
 
-#### Filling Structs with Struct Fields
+##### Filling Structs with Struct Fields
 
 Filling the above `struct` column that has an internal `struct` field would be done as follows,
 ```C++
