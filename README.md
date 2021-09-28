@@ -203,19 +203,21 @@ in the output `struct` data structure.
 
 ### Filling Struct Data Types
 
-Since the `struct` type implies a potentially complex data structure
-with many arbitrarily-typed fields, there are convenience types
+There are convenience types
 that are used for filling the `struct` data type:
   1. `parquetwriter::field_map_t`
   2. `parquetwriter::field_buffer_t`
-The `field_map_t` type is simply an `std::map<std::string, parquetwriter::value_t`, where
+ 
+The `field_map_t` type is simply an `std::map<std::string, parquetwriter::value_t>`, where
 `parquetwriter::value_t` refers to any of the non-`struct` [supported types](#supported-data-types).
+
 The `field_buffer_t` type is simply an `std::vector<parquetwriter::value_t>`.
 The `field_map_t` allows users to fill `struct`-type columns without worrying about
 the order of the `struct`'s fields.
-When using the `field_buffer_t` type to fill `struct`-type columns, the user **must
+**When using the `field_buffer_t` type to fill `struct`-type columns, the user must
 provide the data values in the same order that they appear in the JSON layout
 for the associated `struct`**.
+
 An example of filling the three-field struct `my_struct` from the previous section
 would be as follows:
 ```c++
