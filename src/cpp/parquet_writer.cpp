@@ -274,16 +274,8 @@ void Writer::set_flush_rule(const FlushRule& rule, const uint32_t& n) {
 
 void Writer::fill_value(const std::string& field_name,
                         arrow::ArrayBuilder* builder,
-                        const value_t& data_buffer) {
-    std::visit(internal::DataValueFillVisitor(field_name, builder),
-               data_buffer);
-}
-
-void Writer::fill_value_list(const std::string& field_name,
-                             arrow::ArrayBuilder* builder,
-                             const value_t& data_buffer) {
-    auto list_builder = dynamic_cast<arrow::ListBuilder*>(builder);
-    this->fill_value(field_name, list_builder, data_buffer);
+                        const value_t& input_data) {
+    std::visit(internal::DataValueFillVisitor(field_name, builder), input_data);
 }
 
 void Writer::end_fill(const std::string& field_path) {
@@ -317,22 +309,7 @@ void Writer::fill(const std::string& field_path, const value_t& data_value) {
     }
 
     auto builder = _column_builder_map.at(parent_column_name).at(field_path);
-
-    switch (field_fill_type) {
-        case FillType::VALUE:
-            this->fill_value(field_path, builder, data_value);
-            break;
-        case FillType::VALUE_LIST_1D:
-        case FillType::VALUE_LIST_2D:
-        case FillType::VALUE_LIST_3D:
-            this->fill_value_list(field_path, builder, data_value);
-            break;
-        default:
-            throw parquetwriter::writer_exception(
-                "Invalid FillType \"" + filltype_to_string(field_fill_type) +
-                "\"");
-            break;
-    }  // switch
+    this->fill_value(field_path, builder, data_value);
 
     // signal end of fill
     end_fill(field_path);

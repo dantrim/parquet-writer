@@ -140,10 +140,7 @@ class Writer {
     void end_fill(const std::string& field_path);
     std::vector<std::string> struct_fill_order(const std::string& field_path);
     void fill_value(const std::string& field_name, arrow::ArrayBuilder* builder,
-                    const value_t& data_buffer);
-    void fill_value_list(const std::string& field_name,
-                         arrow::ArrayBuilder* builder,
-                         const value_t& data_buffer);
+                    const value_t& input_data);
     void fill_struct(const std::string& field_path,
                      arrow::ArrayBuilder* builder,
                      const std::vector<value_t>& struct_field_data);
