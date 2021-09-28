@@ -241,7 +241,6 @@ int32_t field0_data = 42;
 float field1_data = 10.5;
 std::vector<float> field2_data{1.2, 2.3, 3.4};
 pw::field_buffer_t my_struct_data{field0_data, field1_data, field2_data}; // elements must be in this order!
-};
 writer.fill("my_struct", my_struct_data);
 ```
 The two approaches will produce the same output Parquet file.
