@@ -73,5 +73,5 @@ typedef std::vector<types::buffer_t> struct_list2d;
 typedef std::vector<types::buffer_t> struct_list1d;
 typedef types::buffer_value_vec_t field_buffer_t;
 typedef types::buffer_value_t value_t;
-typedef std::map<std::string, types::buffer_value_t> field_map_t;
+typedef std::map<std::string, value_t> struct_map_t;
 };  // namespace parquetwriter
