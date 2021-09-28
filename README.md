@@ -224,8 +224,7 @@ writer.fill_struct("my_struct", {my_struct_data});
 
 Lists of `struct`-type columns and fields are supported, and can be constructed
 by building up `std::vector`'s of `pw::struct_t` elements
-and using the corresponding `fill_struct_list1d`, `fill_struct_list2d`,
-or `fill_struct_list3d` methods.
+the `fill_struct_list` method.
 Examples of filling one-, two-, and three-dimensional lists containing `struct` typed
 objects with three `float` typed fields are below,
 
@@ -248,7 +247,7 @@ for(...) {
   };
   my_1d_structlist_data.push_back(struct_data);
 }
-writer.fill_struct_list1d("my_1d_structlist", {my_1d_structlist_data});
+writer.fill_struct_list("my_1d_structlist", {my_1d_structlist_data});
 
 // two-dimensional case: list[list[struct{float, float, float}]]
 std::vector<std::vector<pw::struct_t>> my_2d_structlist_data;
@@ -264,7 +263,7 @@ for(...) {
   }
   my_2d_structlist_data.push_back(inner_list_data);
 }
-writer.fill_struct_list2d("my_2d_structlist", {my_2d_structlist_data});
+writer.fill_struct_list("my_2d_structlist", {my_2d_structlist_data});
 
 // three-dimensional case: list[list[list[struct{float, float, float}]]]
 std::vector<std::vector<std::vector<pw::struct_t>>> my_3d_structlist_data;
@@ -284,7 +283,7 @@ for(...) {
   }
   my_3d_structlist_data.push_back(inner_list_data);
 }
-writer.fill_struct_list3d("my_3d_structlist", {my_3d_structlist_data});
+writer.fill_struct_list("my_3d_structlist", {my_3d_structlist_data});
 ```
 
 Further examples illustrating `struct` data types can be found in [examples/struct-example](examples/cpp/struct_example.cpp).
