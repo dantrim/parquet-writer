@@ -186,12 +186,12 @@ auto file_layout = R"(
   "fields": [
     {
       "name": "my_struct",
-       "type": "struct",
-               "fields": [
-                   {"name": "field0", "type": "int32"},
-                   {"name": "field1", "type": "float"},
-                   {"name": "field2", "type": "list1d", "contains": {"type": "float"}}
-               ]
+      "type": "struct",
+      "fields": [
+                  {"name": "field0", "type": "int32"},
+                  {"name": "field1", "type": "float"},
+                  {"name": "field2", "type": "list1d", "contains": {"type": "float"}}
+                ]
     }
   ]
 )"_json;
