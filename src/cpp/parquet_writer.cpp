@@ -182,14 +182,19 @@ void Writer::set_output_directory(const std::string& output_directory) {
 }
 
 void Writer::new_file() {
+    throw parquetwriter::not_implemented_exception(
+        "Dataset partitioning is not implemented!");
     this->update_output_stream();
     this->initialize();
 }
 
 void Writer::update_output_stream() {
     std::stringstream output_filename;
-    output_filename << _dataset_name << "_" << std::setfill('0') << std::setw(4)
-                    << _file_count << ".parquet";
+    output_filename << _dataset_name << ".parquet";
+    // TODO: setup partioning of datasets
+    // output_filename << _dataset_name << "_" << std::setfill('0') <<
+    // std::setw(4)
+    //                << _file_count << ".parquet";
     PARQUET_ASSIGN_OR_THROW(
         _output_stream, _internal_fs->OpenOutputStream(output_filename.str()));
     _file_count++;
