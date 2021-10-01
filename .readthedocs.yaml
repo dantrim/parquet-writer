@@ -15,10 +15,8 @@ sphinx:
 formats: all
 
 # python -m pip install .[docs]
-#python:
-#  version: 3.9
-#  install:
-#    - method: pip
-#      path: .
-#      extra_requirements:
-#        - docs
+python:
+  version: 3.9
+  install:
+    - method: pip
+    - requirements: docs/requirements.txt
