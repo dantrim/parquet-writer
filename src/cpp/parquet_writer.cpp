@@ -313,7 +313,7 @@ void Writer::fill(const std::string& field_path, const value_t& data_value) {
 void Writer::fill(const std::string& field_path,
                   const struct_buffer_t& struct_buffer_data) {
     auto StructFillVisitor = [&](const auto& t) {
-        fill_struct_type(field_path, t);
+        this->fill_struct_type(field_path, t);
     };
     std::visit(StructFillVisitor, struct_buffer_data);
 }
@@ -321,7 +321,7 @@ void Writer::fill(const std::string& field_path,
 void Writer::fill(const std::string& field_path,
                   const struct_map_t& struct_map_data) {
     auto StructFillVisitor = [&](const auto& t) {
-        fill_struct_type(field_path, t);
+        this->fill_struct_type(field_path, t);
     };
     std::visit(StructFillVisitor, struct_map_data);
 }
