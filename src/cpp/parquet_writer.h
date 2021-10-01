@@ -26,6 +26,19 @@ class logger;
 #include <parquet/arrow/writer.h>
 #include <parquet/exception.h>
 
+/**
+ A test struct named `foo`
+ */
+struct foo {
+    /**
+     A test function
+
+     \param val An input value
+     \return Whether or not the value is valid
+     */
+    bool bar(const std::string& val);
+};
+
 namespace parquetwriter {
 
 enum class Compression { UNCOMPRESSED, GZIP, SNAPPY };
