@@ -1,0 +1,6 @@
+if(BUILD_TESTS)
+    message(STATUS "Including Catch2")
+    add_subdirectory(Catch2)
+endif()
+set(JSON_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/nlohmann PARENT_SCOPE)
+set(SPDLOG_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/spdlog/ PARENT_SCOPE)

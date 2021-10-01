@@ -1,0 +1,4 @@
+sphinx>=2.4.4
+breathe
+PyYAML
+sphinx-rtd-theme>=0.5,<1.0
