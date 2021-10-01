@@ -316,6 +316,9 @@ void Writer::fill(const std::string& field_path,
         this->fill_struct_type(field_path, t);
     };
     std::visit(StructFillVisitor, struct_buffer_data);
+
+    // signal end of fill
+    end_fill(field_path);
 }
 
 void Writer::fill(const std::string& field_path,
@@ -324,6 +327,9 @@ void Writer::fill(const std::string& field_path,
         this->fill_struct_type(field_path, t);
     };
     std::visit(StructFillVisitor, struct_map_data);
+
+    // signal end of fill
+    end_fill(field_path);
 }
 
 void Writer::end_fill(const std::string& field_path) {
@@ -353,9 +359,6 @@ void Writer::fill_struct_type(const std::string& field_path,
 
     auto builder = _column_builder_map.at(parent_column_name).at(field_path);
     this->fill_struct(field_path, builder, struct_field_data);
-
-    // signal end of fill
-    end_fill(field_path);
 }
 
 void Writer::fill_struct_type(
@@ -394,9 +397,6 @@ void Writer::fill_struct_type(
         auto struct_data = struct_list_data.at(i);
         this->fill_struct(field_path, value_builder, struct_data);
     }  // i
-
-    // signal end of fill
-    end_fill(field_path);
 }
 
 void Writer::fill_struct_type(
@@ -441,9 +441,6 @@ void Writer::fill_struct_type(
             this->fill_struct(field_path, value_builder, struct_data);
         }  // j
     }      // i
-
-    // signal end of fill
-    end_fill(field_path);
 }
 
 void Writer::fill_struct_type(
@@ -494,9 +491,6 @@ void Writer::fill_struct_type(
             }  // k
         }      // j
     }          // i
-
-    // signal end of fill
-    end_fill(field_path);
 }
 
 void Writer::fill_struct_type(const std::string& field_path,
