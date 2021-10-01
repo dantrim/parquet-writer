@@ -56,8 +56,8 @@ writing some values to a single row, and storing the output is below:
     writer.initialize();
 
     // generate some data for each of the columns
-    float foo_data = 42.0;
-    uint32_t bar_data = 42;
+    float foo_data{42.0};
+    uint32_t bar_data{42};
     std::vector<float> baz_data{42.0, 42.1, 42.2, 42.3};
 
     // call "fill" for each of the columns, giving the associated data
