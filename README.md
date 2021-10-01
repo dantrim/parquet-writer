@@ -1,6 +1,8 @@
 # parquet-writer
 A C++ library that allows for easily writing Parquet files containing columns of (mostly) whatever type you wish.
 
+[![GitHub Actions Status Badge: CI]][GitHub Actions Status: CI]
+[![GitHub Actions Status Badge: clang-format]][GitHub Actions Status: clang-format]
 [![docs](https://readthedocs.org/projects/parquet-writer/badge/?version=latest)](https://parquet-writer.readthedocs.io/en/latest/?badge=latest)
 
 ## Motivation
@@ -512,3 +514,13 @@ Below are the tested ones:
   sudo apt install pkg-config
   ```
 </details>
+
+ 
+ <!--- LINKS --->
+ [GitHub Actions Status Badge: CI]:https://github.com/dantrim/parquet-writer/workflows/CI/badge.svg?branch=main
+ [GitHub Actions Status: CI]:https://github.com/dantrim/parquet-writer/actions?query=workflow%3ACI+branch%3Amain
+ [GitHub Actions Status Badge: clang-format]:https://github.com/dantrim/parquet-writer/workflows/check-format/badge.svg?branch=main
+ [GitHub Actions Status: clang-format]:https://github.com/dantrim/parquet-writer/actions?query=workflow%3Acheck_format+branch%3Amain
+
+
+
