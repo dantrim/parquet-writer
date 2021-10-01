@@ -64,4 +64,14 @@ typedef types::buffer_value_t value_t;
 typedef std::vector<value_t> field_buffer_t;
 typedef std::map<std::string, value_t> field_map_t;
 
+typedef std::variant<field_buffer_t, std::vector<field_buffer_t>,
+                     std::vector<std::vector<field_buffer_t>>,
+                     std::vector<std::vector<std::vector<field_buffer_t>>>>
+    struct_buffer_t;
+
+typedef std::variant<field_map_t, std::vector<field_map_t>,
+                     std::vector<std::vector<field_map_t>>,
+                     std::vector<std::vector<std::vector<field_map_t>>>>
+    struct_map_t;
+
 };  // namespace parquetwriter

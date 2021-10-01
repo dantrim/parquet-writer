@@ -117,37 +117,13 @@ class Writer {
     // write to value_type and list[value_type] columns
     void fill(const std::string& field_path, const value_t& data_value);
 
-    // write to a struct column using field_buffer_t input
-    void fill(const std::string& field_path, const field_buffer_t& struct_data);
-
-    // write to a list1d[struct] column using field_buffer_t input
+    // write to a struct-typed column using field_buffer_t inputs
     void fill(const std::string& field_path,
-              const std::vector<field_buffer_t>& struct_list_data);
+              const struct_buffer_t& struct_buffer_data);
 
-    // write to a list2d[struct] column using field_buffer_t input
+    // write to a struct-typed column using field_map_t inputs
     void fill(const std::string& field_path,
-              const std::vector<std::vector<field_buffer_t>>& struct_list_data);
-
-    // write to a list3d[struct] column using field_buffer_t input
-    void fill(const std::string& field_path,
-              const std::vector<std::vector<std::vector<field_buffer_t>>>&
-                  struct_list_data);
-
-    // write to a struct column using field_map_t input
-    void fill(const std::string& field_path, const field_map_t& struct_data);
-
-    // write to a list1d[struct] column using field_map_t input
-    void fill(const std::string& field_path,
-              const std::vector<field_map_t>& struct_list_data);
-
-    // write to a list2d[struct] column using field_map_t input
-    void fill(const std::string& field_path,
-              const std::vector<std::vector<field_map_t>>& struct_list_data);
-
-    // write to a list3d[struct] column using field_map_t input
-    void fill(const std::string& field_path,
-              const std::vector<std::vector<std::vector<field_map_t>>>&
-                  struct_list_data);
+              const struct_map_t& struct_map_data);
 
     // call AppendEmptyValue on a column \"field_path\"
     void append_empty_value(const std::string& field_path);
@@ -234,6 +210,44 @@ class Writer {
     // fill an instance of a value_type and list[value_type] data element
     void fill_value(const std::string& field_name, arrow::ArrayBuilder* builder,
                     const value_t& input_data);
+
+    // write to a struct column using field_buffer_t input
+    void fill_struct_type(const std::string& field_path,
+                          const field_buffer_t& struct_data);
+
+    // write to a list1d[struct] column using field_buffer_t input
+    void fill_struct_type(const std::string& field_path,
+                          const std::vector<field_buffer_t>& struct_list_data);
+
+    // write to a list2d[struct] column using field_buffer_t input
+    void fill_struct_type(
+        const std::string& field_path,
+        const std::vector<std::vector<field_buffer_t>>& struct_list_data);
+
+    // write to a list3d[struct] column using field_buffer_t input
+    void fill_struct_type(
+        const std::string& field_path,
+        const std::vector<std::vector<std::vector<field_buffer_t>>>&
+            struct_list_data);
+
+    // write to a struct column using field_map_t input
+    void fill_struct_type(const std::string& field_path,
+                          const field_map_t& struct_data);
+
+    // write to a list1d[struct] column using field_map_t input
+    void fill_struct_type(const std::string& field_path,
+                          const std::vector<field_map_t>& struct_list_data);
+
+    // write to a list2d[struct] column using field_map_t input
+    void fill_struct_type(
+        const std::string& field_path,
+        const std::vector<std::vector<field_map_t>>& struct_list_data);
+
+    // write to a list3d[struct] column using field_map_t input
+    void fill_struct_type(
+        const std::string& field_path,
+        const std::vector<std::vector<std::vector<field_map_t>>>&
+            struct_list_data);
 
     // fill an instance of a struct-type data element
     void fill_struct(const std::string& field_path,

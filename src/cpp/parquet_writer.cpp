@@ -281,14 +281,6 @@ void Writer::fill_value(const std::string& field_name,
     std::visit(internal::DataValueFillVisitor(field_name, builder), input_data);
 }
 
-void Writer::end_fill(const std::string& field_path) {
-    // signal that this column/field was succesfully filled
-    increment_field_fill_count(field_path);
-
-    // check & signal that the row is complete
-    check_row_complete();
-}
-
 void Writer::fill(const std::string& field_path, const value_t& data_value) {
     auto field_fill_type = _expected_fields_filltype_map.at(field_path);
     bool matches_expected_column_type =
@@ -319,7 +311,31 @@ void Writer::fill(const std::string& field_path, const value_t& data_value) {
 }
 
 void Writer::fill(const std::string& field_path,
-                  const field_buffer_t& struct_field_data) {
+                  const struct_buffer_t& struct_buffer_data) {
+    auto StructFillVisitor = [&](const auto& t) {
+        fill_struct_type(field_path, t);
+    };
+    std::visit(StructFillVisitor, struct_buffer_data);
+}
+
+void Writer::fill(const std::string& field_path,
+                  const struct_map_t& struct_map_data) {
+    auto StructFillVisitor = [&](const auto& t) {
+        fill_struct_type(field_path, t);
+    };
+    std::visit(StructFillVisitor, struct_map_data);
+}
+
+void Writer::end_fill(const std::string& field_path) {
+    // signal that this column/field was succesfully filled
+    increment_field_fill_count(field_path);
+
+    // check & signal that the row is complete
+    check_row_complete();
+}
+
+void Writer::fill_struct_type(const std::string& field_path,
+                              const field_buffer_t& struct_field_data) {
     auto field_fill_type = _expected_fields_filltype_map.at(field_path);
     if (field_fill_type != FillType::STRUCT) {
         throw parquetwriter::data_buffer_exception(
@@ -342,8 +358,9 @@ void Writer::fill(const std::string& field_path,
     end_fill(field_path);
 }
 
-void Writer::fill(const std::string& field_path,
-                  const std::vector<field_buffer_t>& struct_list_data) {
+void Writer::fill_struct_type(
+    const std::string& field_path,
+    const std::vector<field_buffer_t>& struct_list_data) {
     auto field_fill_type = _expected_fields_filltype_map.at(field_path);
     if (field_fill_type != FillType::STRUCT_LIST_1D) {
         throw parquetwriter::data_buffer_exception(
@@ -382,7 +399,7 @@ void Writer::fill(const std::string& field_path,
     end_fill(field_path);
 }
 
-void Writer::fill(
+void Writer::fill_struct_type(
     const std::string& field_path,
     const std::vector<std::vector<field_buffer_t>>& struct_list_data) {
     auto field_fill_type = _expected_fields_filltype_map.at(field_path);
@@ -429,9 +446,10 @@ void Writer::fill(
     end_fill(field_path);
 }
 
-void Writer::fill(const std::string& field_path,
-                  const std::vector<std::vector<std::vector<field_buffer_t>>>&
-                      struct_list_data) {
+void Writer::fill_struct_type(
+    const std::string& field_path,
+    const std::vector<std::vector<std::vector<field_buffer_t>>>&
+        struct_list_data) {
     auto field_fill_type = _expected_fields_filltype_map.at(field_path);
     if (field_fill_type != FillType::STRUCT_LIST_3D) {
         throw parquetwriter::data_buffer_exception(
@@ -481,24 +499,25 @@ void Writer::fill(const std::string& field_path,
     end_fill(field_path);
 }
 
-void Writer::fill(const std::string& field_path,
-                  const field_map_t& struct_field_map) {
+void Writer::fill_struct_type(const std::string& field_path,
+                              const field_map_t& struct_field_map) {
     field_buffer_t struct_data =
         this->field_map_to_field_buffer(field_path, struct_field_map);
-    this->fill(field_path, struct_data);
+    this->fill_struct_type(field_path, struct_data);
 }
 
-void Writer::fill(const std::string& field_path,
-                  const std::vector<field_map_t>& struct_field_map_list) {
+void Writer::fill_struct_type(
+    const std::string& field_path,
+    const std::vector<field_map_t>& struct_field_map_list) {
     std::vector<field_buffer_t> struct_data_list;
     for (size_t i = 0; i < struct_field_map_list.size(); i++) {
         struct_data_list.emplace_back(this->field_map_to_field_buffer(
             field_path, struct_field_map_list.at(i)));
     }
-    this->fill(field_path, struct_data_list);
+    this->fill_struct_type(field_path, struct_data_list);
 }
 
-void Writer::fill(
+void Writer::fill_struct_type(
     const std::string& field_path,
     const std::vector<std::vector<field_map_t>>& struct_field_map_list) {
     std::vector<std::vector<field_buffer_t>> struct_data_list;
@@ -510,12 +529,13 @@ void Writer::fill(
         }
         struct_data_list.push_back(inner_list);
     }  //
-    this->fill(field_path, struct_data_list);
+    this->fill_struct_type(field_path, struct_data_list);
 }
 
-void Writer::fill(const std::string& field_path,
-                  const std::vector<std::vector<std::vector<field_map_t>>>&
-                      struct_field_map_list) {
+void Writer::fill_struct_type(
+    const std::string& field_path,
+    const std::vector<std::vector<std::vector<field_map_t>>>&
+        struct_field_map_list) {
     std::vector<std::vector<std::vector<field_buffer_t>>> struct_data_list;
     for (size_t i = 0; i < struct_field_map_list.size(); i++) {
         std::vector<std::vector<field_buffer_t>> inner_list;
@@ -530,7 +550,7 @@ void Writer::fill(const std::string& field_path,
         }  // j
         struct_data_list.push_back(inner_list);
     }  // i
-    this->fill(field_path, struct_data_list);
+    this->fill_struct_type(field_path, struct_data_list);
 }
 
 void Writer::fill_struct(const std::string& field_path,
