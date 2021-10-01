@@ -1,6 +1,8 @@
 # parquet-writer
 A C++ library that allows for easily writing Parquet files containing columns of (mostly) whatever type you wish.
 
+[![docs](https://readthedocs.org/projects/parquet-writer/badge/?version=latest)](https://parquet-writer.readthedocs.io/en/latest/?badge=latest)
+
 ## Motivation
 
 There is a lot of boilerplate in setting up basic writing of Parquet
