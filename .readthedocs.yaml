@@ -16,7 +16,7 @@ formats: all
 
 # python -m pip install .[docs]
 python:
-  version: 3.9
+  version: 3.8
   install:
     - method: pip
     - requirements: docs/requirements.txt
