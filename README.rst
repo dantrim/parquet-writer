@@ -30,13 +30,13 @@ An example JSON layout, stored in the file ``layout.json``, could be:
 
     {
         "fields": [
-            {"name": "column0", "type": "float"},
-            {"name": "column1", "type": "uint32"}
+            {"name": "foo", "type": "float"},
+            {"name": "bar", "type": "uint32"}
         ]
     }
 
 The above describes an output Parquet file containing two data columns
-named ``column0`` and ``column1``, which contain data of types ``float``
+named ``foo`` and ``bar``, which contain data of types ``float``
 (32-bit precision float) and ``uint32`` (32-bit unsigned integer), respectively.
 
 The basics of initializing a ``parquetwriter::Writer`` instance with the above layout,
@@ -54,12 +54,12 @@ writing some values to a single row, and storing the output is below:
     writer.initialize();
 
     // generate some data for each of the columns
-    float column0_data = 42.0;
-    uint32_t column1_data = 42;
+    float foo_data = 42.0;
+    uint32_t bar_data = 42;
 
     // call "fill" for each of the columns, giving the associated data
-    writer.fill("column0", column0_data);
-    writer.fill("column1", column1_data);
+    writer.fill("foo", foo_data);
+    writer.fill("bar", bar_data);
 
     // signal the end of a row
     writer.end_row();
@@ -74,11 +74,11 @@ to quickly dump the contents of the Parquet file:
 .. code:: shell
 
     $ parquet-tools show my_dataset.parquet
-    +----------+----------+
-    | column0  | column1  |
-    |----------+----------|
-    | 42.0     | 42       |
-    +----------+----------+
+    +------+------+
+    | foo  | bar  |
+    |------+------|
+    | 42.0 | 42   |
+    +------+------+
 
 
 ..
