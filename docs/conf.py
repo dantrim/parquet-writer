@@ -17,32 +17,22 @@
 import subprocess, os
 
 def configureDoxyfile(input_dir, output_dir):
-    print(f"FOO RUNNING CONFIGUREDOXYFILE")
-    
     with open('Doxyfile.in', 'r') as file :
         filedata = file.read()
-    
     filedata = filedata.replace('@DOXYGEN_INPUT_DIR@', input_dir)
     filedata = filedata.replace('@DOXYGEN_OUTPUT_DIR@', output_dir)
-    
     with open('Doxyfile', 'w') as file:
         file.write(filedata)
 
 # check if we're running on RTD servers
 read_the_docs_build = bool(os.environ.get("READTHEDOCS", None)) == True
-print(f"FOO read_the_docs_build = {read_the_docs_build}")
-print(f"FOO env: {os.environ}")
-
 breathe_projects = {}
-print(f"FOO breathe_projects before: {breathe_projects}")
-
 if read_the_docs_build:
         input_dir = '../src/cpp'
         output_dir = 'build'
         configureDoxyfile(input_dir, output_dir)
         subprocess.call('doxygen', shell=True)
         breathe_projects['parquet-writer'] = output_dir + '/xml'
-print(f"FOO breathe_projects after: {breathe_projects}")
 
 # -- Project information -----------------------------------------------------
 
