@@ -29,15 +29,15 @@ def configureDoxyfile(input_dir, output_dir):
 
 # check if we're running on RTD servers
 read_the_docs_build = os.environ.get("READTHEDOCS", None) == True
+
+#breathe_projects = {}
+
 #if read_the_docs_build:
-#    subprocess.call("cd ../doxygen; doxygen", shell = True)
-breathe_projects = {}
-if read_the_docs_build:
-	input_dir = '../parquet-writer'
-	output_dir = 'build'
-	configureDoxyfile(input_dir, output_dir)
-	subprocess.call('doxygen', shell=True)
-	breathe_projects['parquet-writer'] = output_dir + '/xml'
+input_dir = '../parquet-writer'
+output_dir = 'build'
+configureDoxyfile(input_dir, output_dir)
+subprocess.call('doxygen', shell=True)
+breathe_projects['parquet-writer'] = output_dir + '/xml'
 
 # -- Project information -----------------------------------------------------
 
