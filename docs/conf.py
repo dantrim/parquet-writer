@@ -34,6 +34,12 @@ if read_the_docs_build:
         subprocess.call('doxygen', shell=True)
         breathe_projects['parquet-writer'] = output_dir + '/xml'
 
+# allows for adding the "View me on GitHub" banner
+def setup(app):
+    app.add_css_file(
+        'https://cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.2.2/gh-fork-ribbon.min.css'
+    )
+
 # -- Project information -----------------------------------------------------
 
 project = 'parquet-writer'

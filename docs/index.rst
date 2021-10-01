@@ -6,17 +6,20 @@
 Welcome to parquet-writer's documentation!
 ==========================================
 
+``parquet-writer`` is a C++ library that allows
+for easily writing Parquet files containing columns of (mostly)
+whatever type and structure you wish.
+
 .. toctree::
    :hidden:
 
    intro
 
-Docs
-====
+.. raw:: html
 
-.. doxygenstruct:: foo
-    :members:
+   <a class="github-fork-ribbon right-top fixed" href="https://github.com/dantrim/parquet-writer" data-ribbon="View me on GitHub" title="View me on GitHub">View me on GitHub</a>
 
+.. include:: ../README.rst
 
 
 Indices and tables
