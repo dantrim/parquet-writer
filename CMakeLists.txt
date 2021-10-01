@@ -32,4 +32,3 @@ find_package(Parquet REQUIRED)
 add_subdirectory(exts/)
 add_subdirectory(src/cpp/)
 add_subdirectory(examples/cpp/)
-

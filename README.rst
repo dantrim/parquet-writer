@@ -40,7 +40,7 @@ named ``column0`` and ``column1``, which contain data of types ``float``
 (32-bit precision float) and ``uint32`` (32-bit unsigned integer), respectively.
 
 The basics of initializing a ``parquetwriter::Writer`` instance with the above layout,
-writing some values, and storing the output is below:
+writing some values to a single row, and storing the output is below:
 
 .. code:: cpp
 
@@ -78,7 +78,7 @@ to quickly dump the contents of the Parquet file:
     | column0  | column1  |
     |----------+----------|
     | 42.0     | 42       |
-    +----------+----------|
+    +----------+----------+
 
 
 ..
