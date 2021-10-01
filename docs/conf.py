@@ -29,7 +29,7 @@ def configureDoxyfile(input_dir, output_dir):
         file.write(filedata)
 
 # check if we're running on RTD servers
-read_the_docs_build = os.environ.get("READTHEDOCS", None) == True
+read_the_docs_build = bool(os.environ.get("READTHEDOCS", None)) == True
 print(f"FOO read_the_docs_build = {read_the_docs_build}")
 print(f"FOO env: {os.environ}")
 
