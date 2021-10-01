@@ -32,12 +32,12 @@ read_the_docs_build = os.environ.get("READTHEDOCS", None) == True
 
 #breathe_projects = {}
 
-#if read_the_docs_build:
-input_dir = '../src/cpp'
-output_dir = 'build'
-configureDoxyfile(input_dir, output_dir)
-subprocess.call('doxygen', shell=True)
-breathe_projects['parquet-writer'] = output_dir + '/xml'
+if read_the_docs_build:
+	input_dir = '../src/cpp'
+	output_dir = 'build'
+	configureDoxyfile(input_dir, output_dir)
+	subprocess.call('doxygen', shell=True)
+	breathe_projects['parquet-writer'] = output_dir + '/xml'
 
 # -- Project information -----------------------------------------------------
 
