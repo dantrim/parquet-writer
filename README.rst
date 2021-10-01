@@ -54,8 +54,8 @@ writing some values to a single row, and storing the output is below:
     writer.initialize();
 
     // generate some data for each of the columns
-    float column0_data{42.0};
-    uint32_t column1_data{42};
+    float column0_data = 42.0;
+    uint32_t column1_data = 42;
 
     // call "fill" for each of the columns, giving the associated data
     writer.fill("column0", column0_data);
