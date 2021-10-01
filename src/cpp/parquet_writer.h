@@ -125,12 +125,6 @@ class Writer {
     void fill(const std::string& field_path,
               const struct_map_t& struct_map_data);
 
-    // call AppendEmptyValue on a column \"field_path\"
-    void append_empty_value(const std::string& field_path);
-
-    // call AppendNullValue on a column \"field_path\"
-    void append_null_value(const std::string& field_path);
-
     // signal that writing to a given row has finished
     void end_row();
 
@@ -267,6 +261,12 @@ class Writer {
     void check_row_complete();
     bool row_is_complete();
     void flush_if_ready();
+
+    // call AppendEmptyValue on a column \"field_path\"
+    void append_empty_value(const std::string& field_path);
+
+    // call AppendNullValue on a column \"field_path\"
+    void append_null_value(const std::string& field_path);
 
     // flush the current in-memory data (rows) to the output Parquet file
     void flush();
