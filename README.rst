@@ -31,13 +31,15 @@ An example JSON layout, stored in the file ``layout.json``, could be:
     {
         "fields": [
             {"name": "foo", "type": "float"},
-            {"name": "bar", "type": "uint32"}
+            {"name": "bar", "type": "uint32"},
+            {"name": "baz", "type": "list1d", "contains": {"type": "float"}}
         ]
     }
 
-The above describes an output Parquet file containing two data columns
-named ``foo`` and ``bar``, which contain data of types ``float``
-(32-bit precision float) and ``uint32`` (32-bit unsigned integer), respectively.
+The above describes an output Parquet file containing three data columns
+named ``foo``, ``bar``, and ``baz`` which contain data of types ``float``
+(32-bit precision float), ``uint32`` (32-bit unsigned integer), and
+``list[float]`` (variable-lengthed 1-dimensional list of elements of type ``float``), respectively.
 
 The basics of initializing a ``parquetwriter::Writer`` instance with the above layout,
 writing some values to a single row, and storing the output is below:
@@ -56,10 +58,12 @@ writing some values to a single row, and storing the output is below:
     // generate some data for each of the columns
     float foo_data = 42.0;
     uint32_t bar_data = 42;
+    std::vector<float> baz_data{42.0, 42.1, 42.2, 42.3};
 
     // call "fill" for each of the columns, giving the associated data
     writer.fill("foo", foo_data);
     writer.fill("bar", bar_data);
+    writer.fill("baz", baz_data);
 
     // signal the end of a row
     writer.end_row();
@@ -74,11 +78,11 @@ to quickly dump the contents of the Parquet file:
 .. code:: shell
 
     $ parquet-tools show my_dataset.parquet
-    +------+------+
-    | foo  | bar  |
-    |------+------|
-    | 42.0 | 42   |
-    +------+------+
+    +------+------+--------------------------+
+    | foo  | bar  | baz                      |
+    |------+------+--------------------------|
+    | 42.0 | 42   | [42.0, 42.1, 42.2, 42.3] |
+    +------+------+--------------------------+
 
 
 ..
