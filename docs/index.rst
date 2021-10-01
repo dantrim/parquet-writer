@@ -10,8 +10,6 @@ Welcome to parquet-writer's documentation!
 for easily writing Parquet files containing columns of (mostly)
 whatever type and structure you wish.
 
-.. include:: ../README.rst
-
 .. toctree::
    :hidden:
 
@@ -21,6 +19,7 @@ whatever type and structure you wish.
 
    <a class="github-fork-ribbon right-top fixed" href="https://github.com/dantrim/parquet-writer" data-ribbon="View me on GitHub" title="View me on GitHub">View me on GitHub</a>
 
+.. include:: ../README.rst
 
 
 Indices and tables
