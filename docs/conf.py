@@ -18,6 +18,8 @@ import subprocess, os
 
 def configureDoxyfile(input_dir, output_dir):
 
+        print(f"FOO RUNNING CONFIGUREDOXYFILE")
+
 	with open('Doxyfile.in', 'r') as file :
 		filedata = file.read()
 
@@ -30,7 +32,8 @@ def configureDoxyfile(input_dir, output_dir):
 # check if we're running on RTD servers
 read_the_docs_build = os.environ.get("READTHEDOCS", None) == True
 
-#breathe_projects = {}
+breathe_projects = {}
+print(f"FOO breathe_projects before: {breathe_projects}")
 
 if read_the_docs_build:
 	input_dir = '../src/cpp'
@@ -38,6 +41,7 @@ if read_the_docs_build:
 	configureDoxyfile(input_dir, output_dir)
 	subprocess.call('doxygen', shell=True)
 	breathe_projects['parquet-writer'] = output_dir + '/xml'
+print(f"FOO breathe_projects after: {breathe_projects}")
 
 # -- Project information -----------------------------------------------------
 
