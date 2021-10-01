@@ -101,4 +101,4 @@ jobs:
 
     - name: Run metadata check
       run: |
-        python examples/python/dump-metadata.py build/bin/example_dataset/example_dataset_0000.parquet
+        python examples/python/dump-metadata.py build/bin/example_dataset/example_dataset.parquet
