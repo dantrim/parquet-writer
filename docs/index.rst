@@ -14,6 +14,9 @@ whatever type and structure you wish.
    :hidden:
 
    intro
+   value_types
+   list_types
+   struct_types
 
 .. raw:: html
 
