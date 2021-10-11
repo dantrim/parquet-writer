@@ -17,6 +17,10 @@ whatever type and structure you wish.
    value_types
    list_types
    struct_types
+   struct_list_types
+   structs_with_structs
+   structs_with_structlists
+   file_metadata
 
 .. raw:: html
 
