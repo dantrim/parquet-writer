@@ -5,13 +5,13 @@ Storing Structs That Have Struct Fields
 
 ``parquet-writer`` also allows for storing 
 ``struct`` type columns that contain fields that are themselves
-of type ``struct``
+of type ``struct``.
 
 Declaring Structs with Struct Fields
 ------------------------------------
 
 Specifying a ``struct`` type column that contains a named field
-that is itself of type ``struct``, with it's own additional set of
+that is itself of type ``struct``, with its own additional set of
 named fields, is done as follows:
 
 .. code-block:: json
@@ -117,5 +117,5 @@ So, for example, the following Parquet file layout declaration is not allowed:
       ]
     }
 
-The above is disallowed since the inner struct ``struct1`` contains
+The above is not allowed since the inner struct ``struct1`` contains
 a ``struct`` typed field ``struct2``.

@@ -174,7 +174,7 @@ So, for example, the following Parquet file layout declaration is not allowed:
       ]         
     }
 
-The above ``list1d`` type column is disallowd since it's ``struct`` typed
+The above ``list1d`` type column is not allowd since its ``struct`` typed
 elements are declared as having an internal ``struct`` typeed column
 ``inner_struct``.
 
