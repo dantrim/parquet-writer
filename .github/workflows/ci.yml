@@ -54,9 +54,8 @@ jobs:
     - name: Install build dependencies on macOS
       if: matrix.os == 'macos-latest'
       run: |
-        # install 5.0.0 (following: https://stackoverflow.com/a/7787703)
-        brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/0264b4e62684c49cdbc837cc64ebfae60cc6ea73/Formula/apache-arrow.rb
-        #brew install apache-arrow
+        # install 5.0.0
+        brew install apache-arrow
         brew install tree
 
     - name: Build library and examples on Ubuntu
