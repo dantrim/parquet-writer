@@ -45,8 +45,8 @@ jobs:
         sudo apt-get install -y ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
         sudo apt-get update -y
         sudo apt-get install -y \
-          libarrow-dev \
-          libparquet-dev
+          libarrow-dev=5.0.0-1 \
+          libparquet-dev=5.0.0-1
 
         # Install other tools
         sudo apt-get install -y tree
