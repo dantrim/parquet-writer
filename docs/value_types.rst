@@ -42,8 +42,8 @@ these nested structures is contained in later sections.
 Declaring Columns of Basic Value Types
 --------------------------------------
 
-Declaring columns storing values of the basic data types above
-in JSON, one constructs a JSON layout as follows:
+Declaring a column layout for storing values of the basic data types above
+is done using JSON as follows:
 
 .. _codeblock:basiclayout:
 

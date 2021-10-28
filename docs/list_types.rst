@@ -24,7 +24,7 @@ Declaring List Type Columns
 ---------------------------
 
 Declaring columns whose data type is a list of the basic value types
-in JSON is done as follows,
+is done using JSON as follows:
 
 .. code-block:: json
 
@@ -45,28 +45,31 @@ Writing List Type Columns
 -------------------------
 
 Writing to list type columns is done by using instances of ``std::vector``
-for the C++ type associated with the ``type`` field in the ``contains``
-object of the list type column's declaration.
+containing the C++ type associated with the storage type declared in the ``contains``
+field of the list type column.
 
 For example, taking the layout declaration from the previous section:
 
 .. code-block:: cpp
 
-    // data for the 1D list column named "column0"
+    // data for the 1D list column:
+    // {"name": "column0", "type": "list1d", "contains": {"type": "float"}}
     std::vector<float> column0_data{1.2, 2.3, 3.4, 4.3};
 
-    // data for the 2D list column named "column1"
+    // data for the 2D list column:
+    // {"name": "column1", "type": "list2d", "contains": {"type": "uint32"}}
     std::vector<std::vector<uint32_t>> column1_data{
                                       {1}, {2, 2}, {3, 3, 3}
                                 };
 
-    // data for the 3D list column named "column2"
+    // data for the 3D list column:
+    // {"name": "column2", "type": "list3d", "contains": {"type": "double"}}
     std::vector<std::vector<std::vector<double>>> column2_data{
                                     { {1.1}, {2.2, 2.2}, {3.3, 3.3, 3.3} },
                                     { {3.1, 3.1, 3.1}, {2.2, 2.2}, {1.1} }
                                 };
 
-    // at some point call "fill"
+    // fill using the usual "fill" method
     writer.fill("column0", column0_data);
     writer.fill("column1", column1_data);
     writer.fill("column2", column2_data);
@@ -76,7 +79,8 @@ Columns of list type can be variably lengthed.
 That is, rows of list type columns do not all have to have the same
 number of contained elements (no padding is necessary).
 Indeed, one row of a given list column
-can have many elements while the next row is empty, for example:
+can have many elements while the next row is empty.
+For example:
 
 .. code-block:: cpp
 
@@ -85,7 +89,7 @@ can have many elements while the next row is empty, for example:
     writer.fill("column0", column0_data);
     writer.end_row();
 
-    // fill a row's "column0" field with a length 0 1D list
+    // fill a second row's "column0" field with a length 0 1D list
     column0_data.clear();
     writer.fill("column0", column_data);
     writer.end_row();

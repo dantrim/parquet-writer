@@ -12,7 +12,8 @@ Declaring Struct Type Columns
 
 Declaring columns containing struct typed data is done via
 the ``struct`` type specifier.
-For example, a struct typed column with three named fields
+
+For example, a struct-typed column with three named fields
 ``field0``, ``field1``, and ``field2`` with
 data types ``int32``, ``float``, and ``list1d[float]``, respectively,
 is done as follows:
@@ -34,16 +35,16 @@ is done as follows:
       ]
     }
 
-As can be seen, ``struct`` types are declared with an additional ``fields`` array
-which contains an array of objects of the usual ``{"name": ..., "type": ...}`` form
-which describes each of the named fields of the output data structure
-to be stored in the Parquet file.
+As can be seen, columns of type ``struct`` are declared with an additional ``fields`` array
+that contains an array of objects of the usual ``{"name": ..., "type": ...}`` form.
+The additional ``fields`` array describes each of the named fields of the data structure
+to be stored in the output Parquet file.
 
 Writing Struct Type Columns
 ---------------------------
 
 There are two convenience types that are used for writing data to
-``struct`` typed columns:
+columns with type ``struct``:
 
   1. ``parquetwriter::field_map_t``
   2. ``parquetwriter::field_buffer_t``
@@ -51,7 +52,7 @@ There are two convenience types that are used for writing data to
 The ``field_map_t`` type is an alias for ``std::map<std::string, parquetwriter::value_t>``,
 where ``parquetwriter::value_t`` refers to an instance of any of the :ref:`basic value types<sec:value_types>`.
 The ``field_map_t`` type allows users to fill ``struct`` type columns
-without worrying aabout the `order` of the struct's fields as declared
+without worrying aabout the order of the struct's fields as declared
 in the JSON layout.
 
 The ``field_buffer_t`` type is an alias for ``std::vector<parquetwriter::value_t>``.
@@ -78,7 +79,7 @@ An example of filling the three-field struct ``my_struct`` declared in the
     float field1_data{42.42};
     std::vector<float> field2_data{42.0, 42.1, 42.2};
 
-    // create the column name to data value mapping
+    // create the mapping between column name and data value to be stored
     pw::field_map_t my_struct_data{
         {"field0", field0_data},
         {"field1", field1_data},
@@ -91,11 +92,10 @@ An example of filling the three-field struct ``my_struct`` declared in the
 Note that since the ``field_map_t`` convenience type is an alias of ``std::map``,
 the ordering of the column names (the keys of the ``std::map``)
 does not matter. The following instantiation of the ``field_map_t`` 
-would lead to the same output as the above:
+would lead to the same output written to file as the above:
 
 .. code-block:: cpp
 
-    // create the column name to data value mapping
     pw::field_map_t my_struct_data{
         {"field2", field2_data},
         {"field1", field1_data},
@@ -105,9 +105,9 @@ would lead to the same output as the above:
 .. note::
     When using the ``field_map_t`` approach to write
     to a struct type column, the call to ``fill`` leads to an
-    internal check against the loaded layout for the specific ``struct`` type column
+    internal check against the loaded layout for the specific struct-type column
     and constructs an intermediate ``field_buffer_t`` with the data values
-    in the correct order matching the named fields' ordering from the loaded layout.
+    in the order matching that of the loaded layout.
 
 .. _sec:struct_field_buffer:
 
@@ -141,11 +141,11 @@ Since ``field_buffer_t`` is an alias of ``std::vector``, you can also do:
     my_struct_data.push_back(field1_data);
     my_struct_data.push_back(field2_data);
 
-As mentioned above, and as the name implies, the data provided to an instance
+As mentioned above (and as the name implies) the data provided to an instance
 of ``field_buffer_t`` must be provided in the order matching that of
-the fields in the user provided layout for the Parquet file.
+the fields in the user-provided layout for the Parquet file.
 
-For example, consider the layout for the following struct type column:
+For example, consider the layout for the following struct-type column:
 
 .. code-block:: json
 
@@ -161,7 +161,7 @@ For example, consider the layout for the following struct type column:
       ]
     }
 
-The above layout specifies a single ``struct`` type column named ``another_struct``,
+The above layout specifies a single struct-type column named ``another_struct``,
 with two named fields ``another_field0`` and ``another_field1``.
 Both of these fields are of type ``float``.
 In using the ``field_buffer_t`` approach to writing to the struct,

@@ -3,22 +3,23 @@
 Storing Lists of Structs
 ========================
 
-Storing lists of struct type columns and fields are supported,
-and can be constructed by building up instances of
-``std::vector`` containing elements of either
-``parquetwriter::field_map_t`` or ``parquetwriter::field_buffer_t``.
+Storing lists containing elements that are of type ``struct`` is supported.
+
+.. Storing lists of struct-type columns and fields are supported,
+.. and can be constructed by building up instances of
+.. ``std::vector`` containing elements of either
+.. ``parquetwriter::field_map_t`` or ``parquetwriter::field_buffer_t``.
 
 
 Declaring Lists of Structs
 --------------------------
 
-In order to declare that a given column should be a list whose
-elements are of ``struct`` type, you compose the
-:ref:`list type<sec:list_types>` and :ref:`struct type<sec:struct_types>`
-declarations.
+Declaring columns that contain lists whose elements are of type ``struct``
+is done by composing the :ref:`list type<sec:list_types>`
+and :ref:`struct type<sec:struct_types>` declarations.
 
 For example, the following declares a one-dimensional list containing
-struct type elements having three named fields:
+struct-type elements that have three named fields:
 
 .. code-block:: json
 
@@ -37,22 +38,20 @@ struct type elements having three named fields:
       ]
     }
 
-The above specifies a one-dimensional list of struct elements.
-In order to declare instead a two- or three-dimensional list,
-one would simply swap the ``structlist`` type field from
-``list1d`` to either ``list2d`` or ``list3d``.
+To declare two- or three-dimensional lists,
+one would simply swap the ``type`` field for the ``structlist`` column
+from ``list1d`` to either ``list2d`` or ``list3d``.
 
 
 Writing Lists of Structs
 ------------------------
 
-As mentioned above, writing to struct type columns is analogous to writing
-to a flat struct column. Instead of providing an instance of either 
-:ref:`field_map_t<sec:struct_field_map>` or :ref:`field_buffer_t<sec:struct_field_buffer>`,
-you provide instances of ``std::vector`` that contain elements of these types.
+Writing to columns that contain lists of struct-type elements is done by
+building up instances of ``std::vector`` containing elements of either
+:ref:`field_map_t<sec:struct_field_map>` or :ref:`field_buffer_t<sec:struct_field_buffer>`.
 
-For example, writing a one-dimensional list of the three-field struct elements
-described above:
+For example, writing a one-dimensional list containing the three-field struct elements
+described above would be done as follows:
 
 .. code-block:: cpp
 
@@ -144,15 +143,15 @@ And the three-dimensional case:
 Constraints
 -----------
 
-For simplicity, any list type data column whose elements are of type ``struct``,
-cannot contain ``struct`` type elements that have
-named fields that are of type ``struct``.
-
-.. note::
+.. warning::
     The ``struct`` type elements contained in lists of ``struct`` cannot
     themselves contain fields that are of type ``struct``.
 
-So, for example, the following Parquet file layout declaration is not allowed:
+For simplicity, any list type data column whose elements are of type ``struct``,
+cannot contain ``struct`` type elements that have
+fields that are themselves of type ``struct``.
+
+For example, the following Parquet file layout declaration is not allowed:
 
 .. code-block:: json
 
@@ -174,7 +173,8 @@ So, for example, the following Parquet file layout declaration is not allowed:
       ]         
     }
 
-The above ``list1d`` type column is not allowd since its ``struct`` typed
-elements are declared as having an internal ``struct`` typeed column
-``inner_struct``.
+.. note::
+    The above ``list1d`` type column is not allowd since its ``struct`` typed
+    elements are declared as having an internal ``struct`` typed column (the field named
+    ``inner_struct``).
 

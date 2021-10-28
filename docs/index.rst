@@ -20,7 +20,7 @@ whatever type and structure you wish.
    struct_list_types
    structs_with_structs
    structs_with_structlists
-   file_metadata
+   misc
 
 .. raw:: html
 

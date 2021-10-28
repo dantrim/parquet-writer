@@ -1,7 +1,11 @@
-.. _sec:file_metadata:
+.. _sec:misc:
+
+Miscellaneous
+====================
+
 
 Adding File Metadata
-====================
+--------------------
 
 Arbitrary metadata can be stored in JSON format and added to the
 output Parquet file using the ``parquet-writer`` library.
