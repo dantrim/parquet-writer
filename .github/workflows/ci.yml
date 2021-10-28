@@ -54,7 +54,7 @@ jobs:
     - name: Install build dependencies on macOS
       if: matrix.os == 'macos-latest'
       run: |
-        brew install apache-arrow
+        brew install apache-arrow@5.0.0
         brew install tree
 
     - name: Build library and examples on Ubuntu
