@@ -55,7 +55,7 @@ macOS
 
 .. code-block::
 
-    brew install apache-arrow@5.0.0
+    brew install apache-arrow
 
 Debian/Ubuntu
 ^^^^^^^^^^^^^
