@@ -21,6 +21,8 @@ whatever type and structure you wish.
    structs_with_structs
    structs_with_structlists
    misc
+   examples
+   building
 
 .. raw:: html
 
