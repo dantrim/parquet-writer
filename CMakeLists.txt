@@ -6,10 +6,6 @@ option(BUILD_TESTS "Whether or not to build the tests" OFF)
 option(BUILD_DOCS "Whether or not to build the documentation" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
-add_compile_options(-Wshadow)
-add_compile_options(-Werror)
-add_compile_options(-Wunused)
-add_compile_options(-Wall)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -30,5 +26,13 @@ find_package(Arrow REQUIRED)
 find_package(Parquet REQUIRED)
 
 add_subdirectory(exts/)
+
+# don't propagate the tight compiler flags to the external packages
+# so add them here
+add_compile_options(-Wshadow)
+add_compile_options(-Werror)
+add_compile_options(-Wunused)
+add_compile_options(-Wall)
+
 add_subdirectory(src/cpp/)
 add_subdirectory(examples/cpp/)
