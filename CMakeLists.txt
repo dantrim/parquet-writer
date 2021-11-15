@@ -29,7 +29,7 @@ add_subdirectory(exts/)
 
 # don't propagate the tight compiler flags to the external packages
 # so add them here
-add_compile_options(-Wshadow)
+#add_compile_options(-Wshadow)
 add_compile_options(-Werror)
 add_compile_options(-Wunused)
 add_compile_options(-Wall)
