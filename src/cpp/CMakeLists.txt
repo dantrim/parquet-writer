@@ -20,7 +20,7 @@ set(LIBRARIES
 )
 
 if(${LINUX_DISTRO} MATCHES "centos")
-    lis(APPEND LIBRARIES -lstdc++fs)
+    list(APPEND LIBRARIES -lstdc++fs)
 endif()
 target_link_libraries(parquet-writer PUBLIC ${LIBRARIES})
 
